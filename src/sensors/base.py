@@ -8,7 +8,7 @@ class SensorBase:
         self.pin = pin
         self.connected = False
         self.last_reading = None
-    
+
     def initialize(self):
         """Initialize the sensor hardware -- override in child classes"""
         raise NotImplementedError
@@ -16,7 +16,7 @@ class SensorBase:
     def read(self):
         """Read the data from he sensor -- override in child classes"""
         raise NotImplementedError
-    
+
     def get_reading(self):
         """Get sensor reading with error handling"""
 
