@@ -1,30 +1,24 @@
-"""Base model for sensor reading"""
+"""Base model for sensors digital and analogue with respective signal communication protocol"""
+_sensor_registry = {}
 
-class SensorBase:
-    """Base class for all sensors"""
-    def __init__(self, name: str, pin:int = None):
-        """Builder"""
+
+def register_sensor(model, protocol):
+    """Decorator"""
+    def decorator(cls):
+        _sensor_registry[(model, protocol)] = cls
+        return cls
+    return decorator
+
+class Sensor:
+    """Base model"""
+    def __init__(self, name, model, protocol, vin, signal, **kwargs):
         self.name = name
-        self.pin = pin
-        self.connected = False
-        self.last_reading = None
-
-    def initialize(self):
-        """Initialize the sensor hardware -- override in child classes"""
-        raise NotImplementedError
-
+        self.model = model
+        self.protocol = protocol
+        self.vin = vin
+        self.signal = signal
+        
     def read(self):
-        """Read the data from he sensor -- override in child classes"""
-        raise NotImplementedError
-
-    def get_reading(self):
-        """Get sensor reading with error handling"""
-
-        try:
-            if not self.connected:
-                 return None
-            self.last_reading = self.read()
-        except Exception as e:
-            print(f"Error reading {self.name}: {str(e)}")
-            return None
+        """Every sensor should implement its own reading method"""
+        raise NotImplementedError("Subclasses must implement _read()_ method")
 
