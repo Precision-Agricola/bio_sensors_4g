@@ -1,22 +1,12 @@
-"""Protocol communication I^2C"""
-from machine import I2C, Pin
-import time
-
+"""I2C protocol implementation"""
 class I2CDevice:
-    """Helper class for I2C communication"""
-
-    def __init__(self, i2c, address):
-        self.i2c = i2c
+    def __init__(self, bus_num, address):
+        from machine import I2C, Pin
+        self.bus = I2C(bus_num, scl=Pin(22), sda=Pin(21))
         self.address = address
 
-    def write_command(self, cmd, value=None):
-        """Write command to I2C device"""
-        if value is not None:
-            self.i2c.writeto(self.address, bytes([cmd, value]))
-        else:
-            self.i2c.writeto(self.address, bytes([cmd]))
+    def read_bytes(self, register, length):
+        return self.bus.readfrom_mem(self.address, register, length)
 
-    def read_data(self, cmd, length):
-        """Read data from I2C device"""
-        self.i2c.writeto(self.address, bytes([cmd]))
-        return self.i2c.readfrom(self.address, length)
+    def write_bytes(self, register, data):
+        self.bus.writeto_mem(self.address, register, data)

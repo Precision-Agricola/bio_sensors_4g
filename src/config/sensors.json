@@ -1,0 +1,22 @@
+{
+    "sensors": [
+        {
+            "name": "Sensor de Flujo de Aire",
+            "model": "BMP390L",
+            "protocol": "I2C",
+            "vin": 3.3,
+            "signal": "I2C",
+            "address": 119,
+            "bus": 0
+        },
+        {
+            "name": "SENSOR NH3",
+            "model": "SEN0567",
+            "protocol": "Analog",
+            "vin": 3.3,
+            "signal": "Analog",
+            "pin": 34,
+            "window_size": 5
+        }
+   ]
+}
