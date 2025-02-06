@@ -1,196 +1,117 @@
 # ESP32 Sensor Data Collection System
 
-A modular MicroPython-based system for collecting data from various sensors and transmitting it to a Raspberry Pi via WiFi.
+A modular MicroPython-based system for collecting sensor data and transmitting it via WiFi.
 
 ## Project Structure
 
     project_root/
-    ├── src/
-    │   ├── main.py              # Main execution script
-    │   ├── config.py            # Configuration parameters
-    │   ├── sensors/             # Sensor implementations
-    │   │   ├── base.py          # Base sensor class
-    │   │   ├── temperature/     # Temperature sensors
-    │   │   ├── pressure/        # Pressure sensors
-    │   │   └── protocols/       # Communication protocols
-    │   └── network/             # Network communication
-    ├── tests/                   # Unit tests
-    └── docs/                    # Documentation
+        ├── docs/                  # Documentation
+        ├── src/
+        │   ├── config/
+        │   │   ├── device_config.json
+        │   │   └── sensors.json
+        │   ├── main.py            # Main script
+        │   ├── network/           # Network communication
+        │   └── sensors/           # Sensor implementations
+        │       ├── base.py        # Base sensor class & registry
+        │       └── ...            # Other sensor modules (temperature, pressure, etc.)
+        └── tests/                 # Unit tests
 
 ## Installation
 
-1. Install MicroPython on your ESP32:
-    ```bash
-    esptool.py --port /dev/ttyUSB0 erase_flash
-    esptool.py --port /dev/ttyUSB0 write_flash -z 0x1000 esp32-{version}.bin
-    ```
+1. Flash MicroPython to your ESP32:
 
-2. Upload the project files:
-    ```bash
-    ampy --port /dev/ttyUSB0 put src/
-    ```
+        esptool.py --port /dev/ttyUSB0 erase_flash
+        esptool.py --port /dev/ttyUSB0 write_flash -z 0x1000 esp32-{version}.bin
 
-3. Configure your WiFi credentials in config.py
+2. Upload project files:
+
+        ampy --port /dev/ttyUSB0 put src/
+
+3. Update `src/config/device_config.json` with your WiFi and server details.
 
 ## Configuration
 
-Edit `config.py` to set up your device:
+Edit `src/config/device_config.json`:
 
-    # config.py
-    WIFI_SSID = "your_network_name"
-    WIFI_PASSWORD = "your_password"
-    
-    # Reading intervals (in seconds)
-    READING_INTERVAL = 30
-    
-    # Sensor pins configuration
-    SENSOR_PINS = {
-        "scd41_i2c_scl": 22,
-        "scd41_i2c_sda": 21,
-        "thermistor_analog": 32
-    }
+        {
+            "wifi": {
+                "ssid": "YourWiFiSSID",
+                "password": "YourWiFiPassword"
+            },
+            "server_ip": "192.168.1.100",
+            "port": 5000
+        }
+
+Edit `src/config/sensors.json` to define your sensors:
+
+        {
+            "sensors": [
+                {
+                    "name": "Pressure Sensor",
+                    "model": "BMP390L",
+                    "protocol": "I2C",
+                    "vin": 3.3,
+                    "signal": "I2C",
+                    "address": 119,
+                    "bus": 0
+                },
+                {
+                    "name": "NH3 Sensor",
+                    "model": "SEN0567",
+                    "protocol": "Analog",
+                    "vin": 3.3,
+                    "signal": "Analog",
+                    "pin": 34,
+                    "window_size": 5
+                }
+            ]
+        }
 
 ## Adding New Sensors
 
-### 1. Create a New Sensor Class
+1. **Create a Sensor Class**
 
-Create a new file in the appropriate category folder (e.g., `sensors/temperature/new_sensor.py`):
+   In the appropriate folder (e.g., `src/sensors/new_type/`), create a new file (e.g., `your_sensor.py`) and implement your sensor using the base class and registration decorator:
 
-    from ..base import SensorBase
-    from machine import Pin, I2C  # or other required hardware interfaces
-    
-    class NewSensor(SensorBase):
-        def __init__(self, pin_or_i2c, name="NewSensor"):
-            super().__init__(name)
-            self.hardware = pin_or_i2c
-            
-        def initialize(self):
-            try:
-                # Initialize your sensor here
-                # Return True if successful
-                self.connected = True
-                return True
-            except Exception as e:
-                print("Init error:", str(e))
-                self.connected = False
-                return False
-        
-        def read(self):
-            if not self.connected:
-                return None
-                
-            try:
-                # Read your sensor here
-                # Return data in dictionary format
-                return {
-                    "temperature": 25.0,
-                    "humidity": 50.0
-                }
-            except Exception as e:
-                print("Read error:", str(e))
-                return None
+        from src.sensors.base import Sensor, register_sensor
 
-### 2. Add to Main Script
+        @register_sensor("YOUR_MODEL", "YOUR_PROTOCOL")
+        class YourSensor(Sensor):
+            def _init_hardware(self):
+                # Initialize sensor hardware here
+                super()._init_hardware()
 
-Update `main.py` to include your new sensor:
+            def _read_implementation(self):
+                # Return sensor reading as a dict
+                return {"value": 42}
 
-    from sensors.temperature.new_sensor import NewSensor
-    
-    def main():
-        # Initialize hardware interface (I2C, ADC, etc.)
-        i2c = I2C(0, scl=Pin(22), sda=Pin(21))
-        
-        # Add your sensor to the sensors dictionary
-        sensors = {
-            "new_sensor": NewSensor(i2c)
+2. **Update Sensor Configuration**
+
+   Add your sensor's configuration to `src/config/sensors.json`:
+
+        {
+            "name": "Your Sensor Name",
+            "model": "YOUR_MODEL",
+            "protocol": "YOUR_PROTOCOL",
+            "vin": 3.3,
+            "signal": "Analog",
+            "pin": 33,
+            "additional_param": "value"
         }
 
-### Common Sensor Types Implementation
+   The system auto-loads and registers your sensor based on this config.
 
-#### 1. I2C Sensor
+## Running the System
 
-    class I2CSensor(SensorBase):
-        def __init__(self, i2c, address, name="I2CSensor"):
-            super().__init__(name)
-            self.i2c = i2c
-            self.address = address
-            
-        def initialize(self):
-            try:
-                if self.address not in self.i2c.scan():
-                    return False
-                self.connected = True
-                return True
-            except Exception as e:
-                print("I2C init error:", str(e))
-                return False
+With proper configuration, simply run `main.py` on your ESP32 to start sensor readings and data transmission.
 
-#### 2. Analog Sensor
+## Testing
 
-    class AnalogSensor(SensorBase):
-        def __init__(self, pin_number, name="AnalogSensor"):
-            super().__init__(name)
-            self.adc = ADC(Pin(pin_number))
-            self.adc.atten(ADC.ATTN_11DB)
-            self.adc.width(ADC.WIDTH_12BIT)
-            
-        def read(self):
-            try:
-                value = self.adc.read()
-                return {"value": value}
-            except Exception as e:
-                print("Analog read error:", str(e))
-                return None
+Run unit tests from the `tests/` folder:
 
-#### 3. Digital Sensor
-
-    class DigitalSensor(SensorBase):
-        def __init__(self, pin_number, name="DigitalSensor"):
-            super().__init__(name)
-            self.pin = Pin(pin_number, Pin.IN)
-            
-        def read(self):
-            try:
-                value = self.pin.value()
-                return {"state": value}
-            except Exception as e:
-                print("Digital read error:", str(e))
-                return None
-
-## Error Handling
-
-All sensors should:
-1. Return `None` when reading fails
-2. Properly handle initialization failures
-3. Check connection status before reading
-4. Use try-except blocks for hardware operations
-
-## Contributing
-
-1. Follow the 4-space indentation style
-2. Implement error handling as shown above
-3. Update documentation when adding new features
-4. Test your sensor implementation thoroughly
-
-## Troubleshooting
-
-Common issues and solutions:
-
-1. Sensor not reading:
-    - Check initialization status
-    - Verify pin connections
-    - Check power supply
-
-2. WiFi connection fails:
-    - Verify credentials in config.py
-    - Check network availability
-    - Reset ESP32 and try again
-
-3. Reading errors:
-    - Check sensor connections
-    - Verify power supply stability
-    - Check for correct pin configuration
+        python -m unittest discover tests
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License
