@@ -1,5 +1,5 @@
-from src.sensors.base import Sensor, register_sensor
-from src.protocols.analog import AnalogInput
+from sensors.base import Sensor, register_sensor
+from protocols.analog import AnalogInput
 
 @register_sensor("H2S", "ANALOG")
 class H2SSensor(Sensor):

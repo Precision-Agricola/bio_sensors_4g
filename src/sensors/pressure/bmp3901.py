@@ -1,6 +1,6 @@
 """Pressure I2C sensor"""
-from src.sensors.base import Sensor, register_sensor
-from src.protocols.i2c import I2CDevice
+from sensors.base import Sensor, register_sensor
+from protocols.i2c import I2CDevice
 import time
 
 @register_sensor("BMP3901", "I2C")

@@ -1,5 +1,5 @@
 import json
-from src.sensors.base import _sensor_registry
+from sensors.base import _sensor_registry
 
 def load_config(config_file='src/config/sensors.json'):
     with open(config_file) as f:

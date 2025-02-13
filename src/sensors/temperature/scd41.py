@@ -1,5 +1,5 @@
-from src.sensors.base import Sensor, register_sensor
-from src.protocols.i2c import I2CDevice
+from sensors.base import Sensor, register_sensor
+from protocols.i2c import I2CDevice
 
 @register_sensor(model="SCD401", protocol="I2C")
 class SCD41Sensor(Sensor):

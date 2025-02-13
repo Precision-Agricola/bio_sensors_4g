@@ -74,7 +74,7 @@ Edit `src/config/sensors.json` to define your sensors:
 
    In the appropriate folder (e.g., `src/sensors/new_type/`), create a new file (e.g., `your_sensor.py`) and implement your sensor using the base class and registration decorator:
 
-        from src.sensors.base import Sensor, register_sensor
+        from sensors.base import Sensor, register_sensor
 
         @register_sensor("YOUR_MODEL", "YOUR_PROTOCOL")
         class YourSensor(Sensor):

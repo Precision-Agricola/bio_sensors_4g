@@ -1,5 +1,5 @@
 import unittest
-from src.network.wifi import Wifi
+from network.wifi import Wifi
 
 # Fake WLAN to simulate no connection.
 class FakeWLAN:
@@ -26,7 +26,7 @@ class FakeSocket:
 class TestWifi(unittest.TestCase):
     def setUp(self):
         # Override WLAN and socket.socket in the wifi module.
-        import src.network.wifi as wifi_mod
+        import network.wifi as wifi_mod
         wifi_mod.network.WLAN = lambda mode: FakeWLAN(mode)
         wifi_mod.socket.socket = lambda *args, **kwargs: FakeSocket()
         self.wifi = Wifi()

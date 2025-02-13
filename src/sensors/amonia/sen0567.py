@@ -1,7 +1,7 @@
 """NH3 - Amonia analog sensor"""
 
-from src.sensors.base import Sensor, register_sensor
-from src.protocols.analog import AnalogInput
+from sensors.base import Sensor, register_sensor
+from protocols.analog import AnalogInput
 
 @register_sensor("NH3", "ANALOG")
 class NH3Sensor(Sensor):

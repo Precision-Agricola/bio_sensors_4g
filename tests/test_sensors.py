@@ -1,5 +1,5 @@
 import unittest
-from src.sensors.base import Sensor, register_sensor, get_sensor_by_model
+from sensors.base import Sensor, register_sensor, get_sensor_by_model
 
 @register_sensor("DUMMY", "TEST")
 class DummySensor(Sensor):
