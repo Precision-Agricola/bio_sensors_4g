@@ -7,8 +7,8 @@ Version 1.1
 import json
 import time
 from config.config import load_config
-from network.wifi import Wifi
-from network.messages import create_message
+from local_network.wifi import Wifi
+from local_network.messages import create_message
 
 def load_device_config(config_file="src/config/device_config.json"):
     with open(config_file) as f:
