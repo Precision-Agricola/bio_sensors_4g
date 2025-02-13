@@ -16,7 +16,20 @@ class I2CDevice:
         self.address = address
 
     def read_bytes(self, register, length):
+        """Reads a specified number of bytes from a register on the I2C device.
+            Args:
+                register (int): The register address to read from.
+                length (int): The number of bytes to read.
+            Returns:
+                bytes: The bytes read from the register.
+            """
+
         return self.bus.readfrom_mem(self.address, register, length)
 
     def write_bytes(self, register, data):
+        """Writes a byte array to the specified register.
+            Args:
+                register (int): The register to write to.
+                data (bytes): The byte array to write.
+            """
         self.bus.writeto_mem(self.address, register, data)
