@@ -1,17 +1,31 @@
 import json
-from sensors.base import _sensor_registry
 
-def load_config(config_file='src/config/sensors.json'):
-    with open(config_file) as f:
-        config = json.load(f)
-    
-    sensors = []
-    for item in config.get('sensors', []):
-        key = (item.get('model'), item.get('protocol'))
-        sensor_cls = _sensor_registry.get(key)
-        if sensor_cls is None:
-            print(f"Sensor {item.get('model')} with protocol {item.get('protocol')} is not registered. Skipping.")
-            continue
-        sensors.append(sensor_cls(**item))
-    
-    return sensors
+def load_sensor_config(config_file='config/sensors.json'):
+    try:
+        with open(config_file) as f:
+            config = json.load(f)
+        
+        sensors = []
+        for item in config:
+            key = (item.get('model'), item.get('protocol'))
+            sensor_cls = sensor_registry.get(key)
+            if sensor_cls:
+                sensors.append(sensor_cls(**item))
+            else:
+                print('Skipping unknown sensor:', item.get('model'))
+        return sensors
+    except:
+        print('Error loading sensor config')
+        return []
+
+def load_device_config(config_file='config/device_config.json'):
+    try:
+        with open(config_file) as f:
+            return json.load(f)
+    except:
+        print('Error loading device config')
+        return {
+            'wifi': {'ssid': '', 'password': ''},
+            'server_ip': '192.168.1.100',
+            'port': 5000
+        }
