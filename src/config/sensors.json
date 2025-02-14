@@ -4,14 +4,17 @@
       "model": "NH3",
       "protocol": "analog",
       "vin": "3.3",
-      "signal": 4
+      "signal": 32,
+      "wire_color": "yellow"
+
     },
     {
       "name": "H2S",
       "model": "H2S",
       "protocol": "analog",
       "vin": "3.3",
-      "signal": 0
+      "signal": 33, 
+      "wire_color": "brown" 
     },
     {
       "name": "Pressure",

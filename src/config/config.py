@@ -1,7 +1,21 @@
+"""Initialize the sensor registration and load the device and sensors configuation
+"""
 import json
 from sensors.base import sensor_registry
+import sensors.amonia.sen0567 
+import sensors.hydrogen_sulfide.sen0568
+import sensors.pressure.bmp3901
 
 def load_sensor_config(config_file='config/sensors.json'):
+    """Loads sensor configurations from a JSON file and instantiates sensor objects.
+        Args:
+            config_file (str, optional): The path to the JSON configuration file.
+                Defaults to 'config/sensors.json'.
+        Returns:
+            list: A list of instantiated sensor objects based on the configuration file.
+                  Returns an empty list if there is an error loading the configuration
+                  or if no valid sensors are found.
+    """
     try:
         with open(config_file) as f:
             config = json.load(f)
@@ -16,12 +30,26 @@ def load_sensor_config(config_file='config/sensors.json'):
                 sensors.append(sensor_cls(**item))
             else:
                 print(f"Skipping unknown sensor: {model} ({protocol})")
+        print(f"Loaded Sensors {sensors}")
         return sensors
     except Exception as e:
         print(f"Error loading sensor config: {str(e)}")
         return []
 
 def load_device_config(config_file='config/device_config.json'):
+    """Loads device configuration from a JSON file.
+        Args:
+            config_file (str, optional): Path to the JSON configuration file.
+                Defaults to 'config/device_config.json'.
+        Returns:
+            dict: A dictionary containing the device configuration.
+                Returns a default configuration if the file cannot be loaded.
+                The default configuration includes:
+                - wifi: {'ssid': '', 'password': ''}
+                - server_ip: '192.168.1.100'
+                - port: 5000
+        """
+
     try:
         with open(config_file) as f:
             return json.load(f)

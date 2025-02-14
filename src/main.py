@@ -5,9 +5,6 @@ Version 1.1
 """
 
 import time
-import sensors.amonia.sen0567  # Import sensor modules to trigger registration
-import sensors.hydrogen_sulfide.sen0568
-import sensors.pressure.bmp3901
 from config.config import load_sensor_config, load_device_config
 from local_network.wifi import Wifi
 from local_network.messages import create_message
