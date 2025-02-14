@@ -1,7 +1,7 @@
 {
     "wifi": {
-      "ssid": "YourWiFiSSID",
-      "password": "YourWiFiPassword"
+      "ssid": "PicoAP",
+      "password": "12345678"
     },
     "server_ip": "192.168.1.100",
     "port": 5000

@@ -4,46 +4,49 @@ Version 1.1
 @authors: santosm@bitelemetric.com, caleb@precisionagricola.com, raul@bitelemetric.com
 """
 
-import json
 import time
-from config.config import load_config
+import sensors.amonia.sen0567  # Import sensor modules to trigger registration
+import sensors.hydrogen_sulfide.sen0568
+import sensors.pressure.bmp3901
+from config.config import load_sensor_config, load_device_config
 from local_network.wifi import Wifi
 from local_network.messages import create_message
 
-def load_device_config(config_file="src/config/device_config.json"):
-    with open(config_file) as f:
-        return json.load(f)
-
 def main():
-    # Load device and sensor configurations
     device_config = load_device_config()
-    sensors = load_config("src/config/sensors.json") 
+    sensors = load_sensor_config()
+    print("Device config:", device_config)
+    print("Sensors loaded:", sensors)
 
-    # Extract WiFi and server details from device configuration
-    wifi_conf = device_config.get("wifi", {})
-    ssid = wifi_conf.get("ssid")
-    password = wifi_conf.get("password")
-    server_ip = device_config.get("server_ip", "192.168.1.100")
-    port = device_config.get("port", 5000)
-
-    # Connect to WiFi using the Wifi handler
+    # Setup WiFi
     wifi = Wifi()
-    if not wifi.connect(ssid, password):
+    wifi_config = device_config.get('wifi', {})
+    if not wifi.connect(wifi_config.get('ssid'), wifi_config.get('password')):
         print("WiFi connection failed")
         return
-
-    # Read sensors and collect their data
-    sensor_data = {}
-    for sensor in sensors:
-        reading = sensor.read()
-        sensor_data[sensor.name] = reading
-
-    # Build and send the message
-    message = create_message(sensor_data)
-    if wifi.send(message, server_ip, port):
-        print("Data sent successfully")
     else:
-        print("Failed to send data")
+        print("WiFi connected")
 
-if __name__ == "__main__":
+    while True:
+        try:
+            sensor_data = {}
+            for sensor in sensors:
+                try:
+                    reading = sensor.read()
+                    sensor_data[sensor.name] = reading
+                except Exception as e:
+                    print(f"Error reading {sensor.name}: {str(e)}")
+            if sensor_data:
+                message = create_message(sensor_data)
+                wifi.send(
+                    message,
+                    device_config.get('server_ip', '192.168.1.100'),
+                    device_config.get('port', 5000)
+                )
+            time.sleep(5)
+        except Exception as e:
+            print(f"Main loop error: {str(e)}")
+            time.sleep(5)
+
+if __name__ == '__main__':
     main()
