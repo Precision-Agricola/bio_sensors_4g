@@ -1,57 +1,65 @@
-"""Pressure I2C sensor"""
+"""Pressure I2C sensor (BMP3901) reducido en MicroPython"""
+
+import time
 from sensors.base import Sensor, register_sensor
 from protocols.i2c import I2CDevice
-import time
+
+# Registros del BMP3901
+REG_CHIP_ID   = 0x00
+REG_PWR_CTRL  = 0x1B
+REG_OSR       = 0x1C
+REG_ODR       = 0x1D
+REG_CONFIG    = 0x1F
+REG_PRESSDATA = 0x04
 
 @register_sensor("BMP3901", "I2C")
 class BMP3901Sensor(Sensor):
+    def __init__(self, **config):
+        self.config = config
+        self.name = config.get("name", "BMP3901")
+        self._initialized = False
+        self.baseline = 0.0
+        self.baseline_set = False
+        self._init_hardware()
+
     def _init_hardware(self):
         bus_num = self.config.get("bus_num", 0)
         addr = self.config.get("address")
+        # Convierte dirección si es string
         address = int(addr, 16) if isinstance(addr, str) else addr
         self.i2c = I2CDevice(bus_num, address)
-        self.baseline_set = False
-        self.baseline = 0.0
-        self.last_pressure = 0.0
         if not self.begin():
             raise Exception("Error al inicializar BMP3901")
         self.calibrate_baseline()
         self._initialized = True
 
     def begin(self):
-        chip_id = self.read_register(0x00)
+        chip_id = self.read_register(REG_CHIP_ID)
         print("Chip ID:", hex(chip_id))
         if chip_id != 0x60:
             return False
-        # Configuración del sensor
-        self.write_register(0x1B, 0x33)  # Habilita presión y temperatura
-        self.write_register(0x1C, 0x0F)  # Máximo oversample
-        self.write_register(0x1D, 0x00)  # Máxima velocidad de muestreo
-        self.write_register(0x1F, 0x00)  # Sin filtro IIR
+        # Configuración básica
+        self.write_register(REG_PWR_CTRL, bytes([0x33]))
+        self.write_register(REG_OSR,      bytes([0x0F]))
+        self.write_register(REG_ODR,      bytes([0x00]))
+        self.write_register(REG_CONFIG,   bytes([0x00]))
         time.sleep(0.1)
         return True
 
     def read_pressure(self):
-        data = self.i2c.read_bytes(0x04, 3)
-        if not data or len(data) < 3:
+        data = self.i2c.read_bytes(REG_PRESSDATA, 3)
+        if data is None or len(data) < 3:
             return None
         adc_P = (data[0] << 16) | (data[1] << 8) | data[2]
         pressure = adc_P / 1638.4  # Conversión ajustada
         if not self.baseline_set:
             self.baseline = pressure
             self.baseline_set = True
-        self.last_pressure = pressure
         return pressure
 
     def detect_air_flow(self):
-        current_pressure = self.read_pressure()
-        if current_pressure is None:
-            return False
-        diff = current_pressure - self.baseline
-        if abs(diff) > 0.5:
-            print("Diferencia de presión:", diff, "hPa")
-            return True
-        return False
+        current = self.read_pressure()
+        return (current is not None) and (abs(current - self.baseline) > 0.5)
 
     def calibrate_baseline(self):
         suma = 0.0
@@ -66,12 +74,12 @@ class BMP3901Sensor(Sensor):
         self.baseline_set = True
         print("Nueva línea base:", self.baseline)
 
-    def write_register(self, reg, value):
-        self.i2c.write_bytes(reg, bytes([value]))
+    def write_register(self, reg, data):
+        self.i2c.write_bytes(reg, data)
 
     def read_register(self, reg):
         data = self.i2c.read_bytes(reg, 1)
-        return data[0] if data and len(data) > 0 else None
+        return data[0] if data and len(data) else 0
 
     def _read_implementation(self):
         pressure = self.read_pressure()
