@@ -1,8 +1,13 @@
 {
-    "wifi": {
-      "ssid": "PicoAP",
-      "password": "12345678"
-    },
-    "server_ip": "192.168.1.100",
-    "port": 5000
+  "wifi": {
+        "ssid": "PicoAP",
+        "password": "123456789"
+  },
+  "server_ip": "192.168.1.100",
+  "port": 8080,
+  "rtc": {
+      "clk_pin": 16,
+      "dio_pin": 21,
+      "cs_pin": 23
+  }
 }

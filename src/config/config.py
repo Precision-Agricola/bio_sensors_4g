@@ -6,6 +6,10 @@ import sensors.amonia.sen0567
 import sensors.hydrogen_sulfide.sen0568
 import sensors.pressure.bmp3901
 
+RTC_CLK_PIN = 16  # Default CLK pin
+RTC_DIO_PIN = 21  # Default DIO pin
+RTC_CS_PIN = 23   # Default CS pin
+
 def load_sensor_config(config_file='config/sensors.json'):
     """Loads sensor configurations from a JSON file and instantiates sensor objects.
         Args:
