@@ -2,9 +2,7 @@
 """
 import json
 from sensors.base import sensor_registry
-import sensors.amonia.sen0567 
-import sensors.hydrogen_sulfide.sen0568
-import sensors.pressure.bmp3901
+
 
 RTC_CLK_PIN = 16  # Default CLK pin
 RTC_DIO_PIN = 21  # Default DIO pin

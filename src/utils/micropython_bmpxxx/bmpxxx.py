@@ -39,7 +39,7 @@ Based on
 import time
 
 from micropython import const
-from micropython_bmpxxx.i2c_helpers import CBits, RegisterStruct
+from .i2c_helpers import CBits, RegisterStruct
 
 try:
     import struct

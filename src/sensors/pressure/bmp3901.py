@@ -20,4 +20,3 @@ class BMP3901(Sensor):
             "pressure": self.bmp.pressure,
             "temperature": self.bmp.temperature
         }
-

@@ -31,4 +31,3 @@ def init_i2c(bus_num=1, scl_pin=21, sda_pin=23):
         I2C: Objeto I2C configurado.
     """
     return I2C(bus_num, scl=Pin(scl_pin), sda=Pin(sda_pin))
-
