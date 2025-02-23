@@ -1,35 +1,34 @@
-"""I2C protocol implementation"""
-from machine import I2C, Pin 
+"""Implementación del protocolo I2C actualizado"""
+from machine import I2C, Pin
 
 class I2CDevice:
     """
-    A class to represent an I2C device.
+    Clase que representa un dispositivo I2C.
+    
     Args:
-        bus_num (int): The I2C bus number.
-        address (int): The I2C address of the device.
-    Attributes:
-        bus (I2C): The I2C bus object.
-        address (int): The I2C address of the device.
+        bus_num (int): Número del bus I2C.
+        address (int): Dirección I2C del dispositivo.
+        scl_pin (int): Número de pin para SCL.
+        sda_pin (int): Número de pin para SDA.
     """
-    def __init__(self, bus_num, address):
-        self.bus = I2C(bus_num, scl=Pin(21), sda=Pin(23))
+    def __init__(self, bus_num, address, scl_pin=21, sda_pin=23):
+        self.bus = I2C(bus_num, scl=Pin(scl_pin), sda=Pin(sda_pin))
         self.address = address
 
     def read_bytes(self, register, length):
-        """Reads a specified number of bytes from a register on the I2C device.
-            Args:
-                register (int): The register address to read from.
-                length (int): The number of bytes to read.
-            Returns:
-                bytes: The bytes read from the register.
-            """
-
+        """Lee una cantidad de bytes desde un registro especificado."""
         return self.bus.readfrom_mem(self.address, register, length)
 
     def write_bytes(self, register, data):
-        """Writes a byte array to the specified register.
-            Args:
-                register (int): The register to write to.
-                data (bytes): The byte array to write.
-            """
+        """Escribe un arreglo de bytes en el registro especificado."""
         self.bus.writeto_mem(self.address, register, data)
+
+def init_i2c(bus_num=1, scl_pin=21, sda_pin=23):
+    """
+    Función de conveniencia para inicializar el bus I2C con los pines especificados.
+    
+    Returns:
+        I2C: Objeto I2C configurado.
+    """
+    return I2C(bus_num, scl=Pin(scl_pin), sda=Pin(sda_pin))
+
