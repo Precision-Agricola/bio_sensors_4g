@@ -1,16 +1,8 @@
-"""Pressure I2C sensor (BMP3901) reducido en MicroPython"""
-
+"""Pressure I2C sensor (BMP3901) usando micropython_bmpxxx"""
 import time
 from sensors.base import Sensor, register_sensor
 from protocols.i2c import I2CDevice
-
-# Registros del BMP3901
-REG_CHIP_ID   = 0x00
-REG_PWR_CTRL  = 0x1B
-REG_OSR       = 0x1C
-REG_ODR       = 0x1D
-REG_CONFIG    = 0x1F
-REG_PRESSDATA = 0x04
+from micropython_bmpxxx import bmpxxx
 
 @register_sensor("BMP3901", "I2C")
 class BMP3901Sensor(Sensor):
@@ -20,68 +12,121 @@ class BMP3901Sensor(Sensor):
         self._initialized = False
         self.baseline = 0.0
         self.baseline_set = False
+        self.sea_level_pressure = 1013.25  # Presión estándar a nivel del mar
         self._init_hardware()
-
+        
     def _init_hardware(self):
-        bus_num = self.config.get("bus_num", 0)
-        addr = self.config.get("address")
-        # Convierte dirección si es string
-        address = int(addr, 16) if isinstance(addr, str) else addr
-        self.i2c = I2CDevice(bus_num, address)
-        if not self.begin():
-            raise Exception("Error al inicializar BMP3901")
-        self.calibrate_baseline()
-        self._initialized = True
-
-    def begin(self):
-        chip_id = self.read_register(REG_CHIP_ID)
-        print("Chip ID:", hex(chip_id))
-        if chip_id != 0x60:
-            return False
-        # Configuración básica
-        self.write_register(REG_PWR_CTRL, bytes([0x33]))
-        self.write_register(REG_OSR,      bytes([0x0F]))
-        self.write_register(REG_ODR,      bytes([0x00]))
-        self.write_register(REG_CONFIG,   bytes([0x00]))
-        time.sleep(0.1)
-        return True
-
+        try:
+            bus_num = self.config.get("bus_num", 0)
+            addr = self.config.get("address", 0x77)
+            scl_pin = self.config.get("scl_pin", 21)
+            sda_pin = self.config.get("sda_pin", 23)
+            
+            # Obtener el objeto I2C
+            i2c_obj = self.config.get("i2c_obj", None)
+            
+            if i2c_obj:
+                # Usar un objeto I2C existente si se proporciona
+                self.bmp = bmpxxx.BMP390(i2c=i2c_obj, address=addr)
+            else:
+                # Crear y usar nuestro propio dispositivo I2C
+                self.i2c_device = I2CDevice(bus_num, addr, scl_pin=scl_pin, sda_pin=sda_pin)
+                self.bmp = bmpxxx.BMP390(i2c=self.i2c_device.bus, address=addr)
+            
+            # Establecer presión a nivel del mar (opcional)
+            custom_slp = self.config.get("sea_level_pressure")
+            if custom_slp:
+                self.bmp.sea_level_pressure = float(custom_slp)
+                
+            # Establecer altitud conocida (opcional)
+            altitude = self.config.get("altitude")
+            if altitude:
+                self.bmp.altitude = float(altitude)
+                
+            self.calibrate_baseline()
+            self._initialized = True
+            print(f"BMP3901 inicializado. Presión al nivel del mar: {self.bmp.sea_level_pressure:.2f} hPa")
+        except Exception as e:
+            print(f"Error al inicializar BMP3901: {e}")
+            self._initialized = False
+        
     def read_pressure(self):
-        data = self.i2c.read_bytes(REG_PRESSDATA, 3)
-        if data is None or len(data) < 3:
+        """Lee la presión barométrica en hPa"""
+        try:
+            return self.bmp.pressure
+        except Exception as e:
+            print(f"Error al leer presión: {e}")
             return None
-        adc_P = (data[0] << 16) | (data[1] << 8) | data[2]
-        pressure = adc_P / 1638.4  # Conversión ajustada
-        if not self.baseline_set:
-            self.baseline = pressure
-            self.baseline_set = True
-        return pressure
-
+            
+    def read_temperature(self):
+        """Lee la temperatura en grados Celsius"""
+        try:
+            return self.bmp.temperature
+        except Exception as e:
+            print(f"Error al leer temperatura: {e}")
+            return None
+            
+    def read_altitude(self):
+        """Lee la altitud en metros basada en la presión al nivel del mar configurada"""
+        try:
+            return self.bmp.altitude
+        except Exception as e:
+            print(f"Error al leer altitud: {e}")
+            return None
+        
+    def set_sea_level_pressure(self, pressure):
+        """Establece la presión a nivel del mar para cálculos de altitud"""
+        self.bmp.sea_level_pressure = pressure
+        return self.bmp.sea_level_pressure
+        
+    def set_known_altitude(self, altitude):
+        """Establece una altitud conocida para calibrar la presión a nivel del mar"""
+        self.bmp.altitude = altitude
+        return self.bmp.sea_level_pressure
+            
     def detect_air_flow(self):
+        """Detecta cambios en el flujo de aire basados en cambios de presión"""
         current = self.read_pressure()
         return (current is not None) and (abs(current - self.baseline) > 0.5)
-
+        
     def calibrate_baseline(self):
+        """Calibra la línea base de presión tomando múltiples lecturas"""
+        if not self._initialized:
+            return
+            
         suma = 0.0
-        n = 10
+        readings = 0
+        n = 5  # Menos lecturas para agilizar la inicialización
+        
         for _ in range(n):
             p = self.read_pressure()
-            if p is None:
-                continue
-            suma += p
+            if p is not None:
+                suma += p
+                readings += 1
             time.sleep(0.1)
-        self.baseline = suma / n
-        self.baseline_set = True
-        print("Nueva línea base:", self.baseline)
-
-    def write_register(self, reg, data):
-        self.i2c.write_bytes(reg, data)
-
-    def read_register(self, reg):
-        data = self.i2c.read_bytes(reg, 1)
-        return data[0] if data and len(data) else 0
-
+            
+        if readings > 0:
+            self.baseline = suma / readings
+            self.baseline_set = True
+            print(f"Nueva línea base de presión: {self.baseline:.2f} hPa")
+        else:
+            print("No se pudo establecer la línea base de presión")
+    
+    # CORREGIDO: Método con nombre exactamente igual al esperado por la clase base
     def _read_implementation(self):
-        pressure = self.read_pressure()
-        airflow = self.detect_air_flow()
-        return {"pressure": pressure, "air_flow": airflow}
+        """Implementación de lectura que devuelve todos los datos del sensor"""
+        if not self._initialized:
+            return None
+            
+        try:
+            data = {
+                "pressure": self.read_pressure(),
+                "temperature": self.read_temperature(),
+                "altitude": self.read_altitude(),
+                "air_flow": self.detect_air_flow(),
+                "sea_level_pressure": self.bmp.sea_level_pressure
+            }
+            return data
+        except Exception as e:
+            print(f"Error en _read_implementation: {e}")
+            return None

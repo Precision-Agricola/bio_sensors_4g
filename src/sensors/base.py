@@ -2,7 +2,7 @@
 sensor_registry = {}
 
 def register_sensor(model, protocol):
-    print(f"Registering sensor model: {model}, protocol:{protocol}")
+    print(f"Registering sensor model: {model}, protocol: {protocol}")
     def decorator(cls):
         key = (model.strip().upper(), protocol.strip().upper())
         sensor_registry[key] = cls
@@ -25,25 +25,13 @@ class Sensor:
         self._initialized = True
 
     def read(self):
-        if not self._initialized:
-            return None
-        try:
-            return self._read_implementation()
-        except Exception as e:
-            print(f"Error reading {self.name}: {str(e)}")
-            return None
-
-    def _read_implementation(self):
-        raise NotImplementedError("Subclasses must implement _read_implementation()")
-
-    def read(self):
         """
-        Public read method with basic error handling
-        Returns: dict of values or None
+        Public read method with basic error handling.
+        Returns: dict of values or None.
         """
         if not self._initialized:
             return None
-            
+
         try:
             return self._read_implementation()
         except Exception as e:

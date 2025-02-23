@@ -1,9 +1,3 @@
-"""Main sensor modular reading
-
-Version 1.1
-@authors: santosm@bitelemetric.com, caleb@precisionagricola.com, raul@bitelemetric.com
-"""
-
 from machine import Timer, Pin, ADC, I2C
 from calendar.get_time import init_rtc, get_current_time
 from utils.micropython_bmpxxx import bmpxxx
@@ -18,6 +12,7 @@ adc39 = ADC(Pin(39))
 rtc = init_rtc()
 
 # Inicializá el bus I2C, pero no el sensor
+i2c = None
 bmp = None  # Se creará tras energizar
 
 def sensor_routine():
@@ -26,16 +21,16 @@ def sensor_routine():
         # Energiza relevadores
         relay1.value(1)
         relay2.value(1)
-        time.sleep(2)  # Esperar estabilización
-        i2c = I2C(scl=Pin(23), sda=Pin(21))
-        devices = i2c.scan()
-        if devices:
-            for d in devices:
-                print(f"I2C device at address: {hex(d)}")
-        else:
-            print("ERROR: No I2C devices found")
-        print("")
-
+        time.sleep(1)  # Esperar estabilización
+        if i2c is None:
+            try:
+                i2c = I2C(scl=Pin(21), sda=Pin(23))
+            except Exception as e:
+                print(f"No se pudo inicializar el bus I2C: {e}")
+                # Podés desenergizar si falla
+                relay1.value(0)
+                relay2.value(0)
+                return
         # Si no existe la instancia, se crea
         if bmp is None:
             try:
