@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Credentials
+src/config/secrets.py
+
 # C extensions
 *.so
 

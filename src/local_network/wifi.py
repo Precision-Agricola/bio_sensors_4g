@@ -1,42 +1,36 @@
 """Wifi Manager"""
 
 import network
-import time
-import socket
-import json
+import urequests
+from config import SSID, PASSWORD, SERVER_URL
 
-class Wifi:
-    def __init__(self):
-        self.wlan = network.WLAN(network.STA_IF)
-        self.wlan.active(True)
-    
-    def connect(self, ssid, password, timeout=10):
-        if self.wlan.isconnected():
-            return True
-            
+if SSID is None:
+    SSID = 'bio_sensors_access_point'
+if PASSWORD is None:
+    PASSWORD = '#ExitoAgricola1$'
+if SERVER_URL is None:
+    SERVER_URL = '192.168.1.100:8080'
+
+def connect():
+    """Connect to the WiFi network."""
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
         print("Connecting to WiFi...")
-        self.wlan.connect(ssid, password)
-        
-        # Wait for connection with timeout
-        start = time.time()
-        while not self.wlan.isconnected():
-            if time.time() - start > timeout:
-                print("WiFi connection timeout")
-                return False
-            time.sleep(1)
-            
-        print("Connected to WiFi")
-        print("Network config:", self.wlan.ifconfig())
-        return True
-    
-    def send(self, data, server_ip, port):
-        try:
-            addr_info = socket.getaddrinfo(server_ip, port)[0][-1]
-            s = socket.socket()
-            s.connect(addr_info)
-            s.send(json.dumps(data).encode())
-            s.close()
-            return True
-        except Exception as e:
-            print("Send error:", str(e))
-            return False
+        wlan.connect(SSID, PASSWORD)
+        while not wlan.isconnected():
+            pass
+    print("WiFi connected")
+
+def send_data(payload):
+    """Send the payload to the Raspberry Pi server.
+
+    Args:
+        payload (str): JSON-encoded payload to send.
+    """
+    connect()
+    try:
+        response = urequests.post(SERVER_URL, data=payload)
+        print("Data sent successfully:", response.text)
+    except Exception as e:
+        print("Error sending data:", e)
