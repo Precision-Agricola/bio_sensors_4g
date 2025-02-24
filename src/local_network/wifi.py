@@ -2,14 +2,7 @@
 
 import network
 import urequests
-from config import SSID, PASSWORD, SERVER_URL
-
-if SSID is None:
-    SSID = 'bio_sensors_access_point'
-if PASSWORD is None:
-    PASSWORD = '#ExitoAgricola1$'
-if SERVER_URL is None:
-    SERVER_URL = '192.168.1.100:8080'
+from src.config.secrets import WIFI_CONFIG, SERVER_CONFIG
 
 def connect():
     """Connect to the WiFi network."""
@@ -17,20 +10,16 @@ def connect():
     wlan.active(True)
     if not wlan.isconnected():
         print("Connecting to WiFi...")
-        wlan.connect(SSID, PASSWORD)
+        wlan.connect(WIFI_CONFIG["ssid"], WIFI_CONFIG["password"])
         while not wlan.isconnected():
             pass
     print("WiFi connected")
 
 def send_data(payload):
-    """Send the payload to the Raspberry Pi server.
-
-    Args:
-        payload (str): JSON-encoded payload to send.
-    """
+    """Send the payload to the Raspberry Pi server."""
     connect()
     try:
-        response = urequests.post(SERVER_URL, data=payload)
+        response = urequests.post(SERVER_CONFIG["url"], data=payload)
         print("Data sent successfully:", response.text)
     except Exception as e:
         print("Error sending data:", e)
