@@ -2,7 +2,7 @@
 
 import network
 import urequests
-from src.config.secrets import WIFI_CONFIG, SERVER_CONFIG
+from config.secrets import WIFI_CONFIG, SERVER_CONFIG
 
 def connect():
     """Connect to the WiFi network."""

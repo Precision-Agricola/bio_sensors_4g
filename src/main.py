@@ -102,8 +102,9 @@ def prepare_payload(sensor_status):
     }
 
 def sensor_routine():
-    """Execute the sensor reading routine and send data via WiFi."""
-    from local_network.wifi import send_data  # Lazy import
+    """Execute the sensor reading routine and send data via WiFi with a random delay."""
+    from local_network.wifi import send_data
+    import random
     sensor_configs = load_sensor_config()
     if not sensor_configs:
         print("No sensor configurations found!")
@@ -115,10 +116,17 @@ def sensor_routine():
     json_payload = json.dumps(payload)
     print("Payload:", payload)
     print("JSON Payload:", json_payload)
+    time.sleep(random.uniform(0, 5))
     send_data(json_payload)
+    schedule_next_run()  # Reschedule after completion
 
-# Initialize RTC
-rtc = init_rtc()
+def schedule_next_run():
+    """Schedule the next sensor routine execution at the 10th second of the next minute."""
+    y, mo, d, h, m, s = get_current_time(rtc)
+    seconds_until_next = (60 - s + 10) % 60  # Time until next minute's 10th second
+    if seconds_until_next == 0:
+        seconds_until_next = 60  # Full minute if exactly on time
+    timer.init(period=seconds_until_next * 1000, mode=Timer.ONE_SHOT, callback=lambda t: sensor_routine())
 
 def check_time(timer):
     """Check current time and trigger sensor routine at the 10th second.
@@ -131,9 +139,10 @@ def check_time(timer):
         print(f"Starting routine at {h}:{m}:{s}")
         sensor_routine()
 
-# Configure timer to check time every second
+# Initialize RTC
+rtc = init_rtc()
 timer = Timer(0)
-timer.init(period=1000, mode=Timer.PERIODIC, callback=check_time)
+schedule_next_run()
 
 # Main loop
 while True:
