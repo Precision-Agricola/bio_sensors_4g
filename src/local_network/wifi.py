@@ -4,6 +4,7 @@ import network
 import urequests
 import time
 import os
+import socket
 from config.secrets import WIFI_CONFIG, SERVER_CONFIG, MQTT_CONFIG
 
 # Backup file name
