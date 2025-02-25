@@ -14,10 +14,15 @@ from calendar.get_time import init_rtc, get_current_time
 import sensors.amonia.sen0567 
 import sensors.hydrogen_sulfide.sen0568
 import sensors.pressure.bmp3901
+from config.secrets import DEVICE_SERIAL, MQTT_CONFIG, WIFI_CONFIG
+from local_network.mqtt import MQTTManager
+from local_network.wifi import connect
 
 # Relay configuration
 relay1 = Pin(13, Pin.OUT)
 relay2 = Pin(14, Pin.OUT)
+
+mqtt = MQTTManager()
 
 def activate_relays():
     """Activate both relays and wait for stabilization."""
@@ -31,14 +36,7 @@ def deactivate_relays():
     relay2.value(0)
 
 def load_sensor_config(path="config/sensors.json"):
-    """Load sensor configurations from a JSON file.
-
-    Args:
-        path (str): Path to the sensor configuration file. Defaults to 'config/sensors.json'.
-
-    Returns:
-        list: List of sensor configurations, or empty list if loading fails.
-    """
+    """Load sensor configurations from a JSON file."""
     try:
         with open(path, "r") as f:
             return json.load(f)
@@ -47,14 +45,7 @@ def load_sensor_config(path="config/sensors.json"):
         return []
 
 def create_sensor(conf):
-    """Create a sensor instance based on its configuration.
-
-    Args:
-        conf (dict): Configuration dictionary for the sensor.
-
-    Returns:
-        object: Sensor instance if registered, None otherwise.
-    """
+    """Create a sensor instance based on its configuration."""
     from sensors.base import sensor_registry  # Lazy import to avoid circular issues
     if "signal" not in conf:
         conf["signal"] = None
@@ -66,14 +57,7 @@ def create_sensor(conf):
     return None
 
 def test_sensors(sensor_configs):
-    """Test all sensors and return their status and readings.
-
-    Args:
-        sensor_configs (list): List of sensor configuration dictionaries.
-
-    Returns:
-        dict: Sensor status with names as keys and status/reading as values.
-    """
+    """Test all sensors and return their status and readings."""
     sensor_status = {}
     for conf in sensor_configs:
         sensor = create_sensor(conf)
@@ -88,37 +72,37 @@ def test_sensors(sensor_configs):
     return sensor_status
 
 def prepare_payload(sensor_status):
-    """Prepare a payload with timestamp and sensor status.
-
-    Args:
-        sensor_status (dict): Dictionary of sensor statuses.
-
-    Returns:
-        dict: Payload with timestamp and sensor data.
-    """
+    """Prepare a payload with timestamp and sensor status."""
     return {
+        "device_id": DEVICE_SERIAL["device_id"],
         "timestamp": time.time(),
         "sensors": sensor_status
     }
 
 def sensor_routine():
-    """Execute the sensor reading routine and send data via WiFi with a random delay."""
-    from local_network.wifi import send_data
-    import random
+    """Execute sensor reading and send data via MQTT."""
     sensor_configs = load_sensor_config()
     if not sensor_configs:
         print("No sensor configurations found!")
         return
+    
     activate_relays()
-    status = test_sensors(sensor_configs)
-    deactivate_relays()
-    payload = prepare_payload(status)
-    json_payload = json.dumps(payload)
-    print("Payload:", payload)
-    print("JSON Payload:", json_payload)
-    time.sleep(random.uniform(0, 5))
-    send_data(json_payload)
-    schedule_next_run()  # Reschedule after completion
+    try:
+        status = test_sensors(sensor_configs)
+        payload = {
+            "device_id": DEVICE_SERIAL["device_id"],
+            "timestamp": time.time(),
+            "sensors": status
+        }
+        if mqtt.publish(payload):
+            print("Data sent via MQTT")
+        else:
+            print("Saved to backup")
+    except Exception as e:
+        print("Routine Error:", e)
+    finally:
+        deactivate_relays()
+    schedule_next_run()
 
 def schedule_next_run():
     """Schedule the next sensor routine execution at the 10th second of the next minute."""
@@ -129,15 +113,16 @@ def schedule_next_run():
     timer.init(period=seconds_until_next * 1000, mode=Timer.ONE_SHOT, callback=lambda t: sensor_routine())
 
 def check_time(timer):
-    """Check current time and trigger sensor routine at the 10th second.
-
-    Args:
-        timer: Timer object (unused, required by callback).
-    """
+    """Check current time and trigger sensor routine at the 10th second."""
     y, mo, d, h, m, s = get_current_time(rtc)
     if s == 10:
         print(f"Starting routine at {h}:{m}:{s}")
         sensor_routine()
+
+# Ensure WiFi is connected before starting
+print("Initializing...")
+wifi_connected = connect()
+print(f"WiFi status: {'Connected' if wifi_connected else 'Disconnected'}")
 
 # Initialize RTC
 rtc = init_rtc()
@@ -146,4 +131,9 @@ schedule_next_run()
 
 # Main loop
 while True:
+    # Try reconnecting WiFi periodically if it's not connected
+    if not wifi_connected:
+        wifi_connected = connect()
+        if wifi_connected:
+            print("WiFi reconnected")
     time.sleep(1)
