@@ -1,10 +1,16 @@
-"""MQTT Broker para Raspberry Pi Pico W con depuración avanzada"""
+"""MQTT Broker para Raspberry Pi Pico W con integración AWS IoT Core
+
+Este script actúa como broker MQTT local y retransmite los datos a AWS IoT Core.
+Recibe datos de sensores a través del punto de acceso local y los reenvía a AWS.
+"""
 import network
 import socket
 import time
 import json
-from machine import Pin
 import gc
+from machine import Pin
+from pico_lte.core import PicoLTE
+from pico_lte.common import debug
 
 # Configuración
 SSID = "PrecisionAgricola"
@@ -15,10 +21,15 @@ DEBUG_MODE = True  # Activar depuración detallada
 # LED para indicación de estado
 led = Pin("LED", Pin.OUT)
 
+# Inicializar PicoLTE para conectividad AWS IoT
+picoLTE = PicoLTE()
+
 # Almacenamiento y contadores
 received_data = []
 message_count = 0
 error_count = 0
+aws_success_count = 0
+aws_error_count = 0
 last_device_seen = {}
 
 def debug_print(msg, data=None, force=False):
@@ -58,6 +69,42 @@ def start_mqtt_broker():
     print(f"Broker MQTT escuchando en puerto {MQTT_PORT}")
     return s
 
+def publish_to_aws(data):
+    """Publicar datos en AWS IoT Core utilizando PicoLTE"""
+    global aws_success_count, aws_error_count
+    
+    try:
+        # Preparar el formato de payload para AWS IoT
+        payload_json = {
+            "state": {
+                "reported": data
+            }
+        }
+        
+        debug_print("Enviando datos a AWS IoT:", payload_json)
+        
+        # Convertir a JSON string
+        payload = json.dumps(payload_json)
+        
+        # Publicar en AWS IoT
+        result = picoLTE.aws.publish_message(payload)
+        
+        if result["status"] == 0:  # Éxito
+            aws_success_count += 1
+            debug_print("Datos enviados correctamente a AWS IoT", force=True)
+            return True
+        else:
+            aws_error_count += 1
+            debug_print("Error al enviar datos a AWS IoT:", result, force=True)
+            return False
+            
+    except Exception as e:
+        aws_error_count += 1
+        print(f"ERROR AWS: {e}")
+        import sys
+        sys.print_exception(e)
+        return False
+
 def handle_mqtt_packet(payload):
     """Procesar datos de carga útil MQTT recibidos"""
     global message_count
@@ -96,6 +143,13 @@ def handle_mqtt_packet(payload):
                 reading = sensor_data.get("reading", "N/A")
                 print(f"  - {sensor_name}: {status}, Valor: {reading}")
         print("=" * 40 + "\n")
+        
+        # Enviar a AWS IoT Core
+        aws_result = publish_to_aws(data)
+        if aws_result:
+            print("Datos retransmitidos exitosamente a AWS IoT")
+        else:
+            print("Error al retransmitir datos a AWS IoT")
         
         # Alternar LED
         led.toggle()
@@ -224,6 +278,8 @@ def print_stats():
     print("\n===== ESTADÍSTICAS DE MENSAJES =====")
     print(f"Mensajes recibidos: {message_count}")
     print(f"Errores de procesamiento: {error_count}")
+    print(f"Envíos exitosos a AWS: {aws_success_count}")
+    print(f"Errores de envío a AWS: {aws_error_count}")
     print("Últimos dispositivos vistos:")
     
     for device, last_time in last_device_seen.items():
@@ -233,14 +289,21 @@ def print_stats():
     print("===================================\n")
 
 def main():
+    # Inicializar el punto de acceso WiFi
     setup_access_point()
-    broker_socket = start_mqtt_broker()
-    print("Broker MQTT listo")
     
+    # Inicializar el broker MQTT
+    broker_socket = start_mqtt_broker()
+    print("Broker MQTT listo - Esperando conexiones")
+    print("AWS IoT Core integración activada")
+    
+    # Timer para estadísticas
     stats_timer = time.time()
     
+    # Bucle principal de manejo de conexiones
     while True:
         try:
+            # Imprimir estadísticas cada minuto
             if time.time() - stats_timer > 60:
                 print_stats()
                 stats_timer = time.time()
@@ -255,6 +318,7 @@ def main():
                 if e.args[0] != 110:  # ETIMEDOUT
                     print(f"Error de socket: {e}")
             
+            # Liberación de memoria
             gc.collect()
             
         except Exception as e:
