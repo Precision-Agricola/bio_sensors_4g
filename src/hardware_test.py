@@ -1,6 +1,6 @@
 """
 Sensor Hardware Test Script
-Precisón Agrícola - Test Plan Implementation
+Precisón Agrícola - Test Plan Implementation (Updated with I2C Pins)
 """
 
 import time
@@ -10,10 +10,13 @@ import json
 # Reuse sensor creation logic from main code
 from sensors.base import sensor_registry
 
-# Configuration paths and settings
+# Configuration - Update these according to your hardware
 SENSOR_CONFIG_PATH = "config/sensors.json"
 RELAY_PINS_UNDER_TEST = [12, 13, 14, 27]
-I2C_BUS_ID = 0  # Update based on actual hardware configuration
+I2C_BUS_ID = 0                # Typically 0 or 1 depending on hardware
+I2C_SCL_PIN = 23              # Updated SCL pin
+I2C_SDA_PIN = 21              # Updated SDA pin
+
 
 def create_sensor(conf):
     """Replicated from main code for sensor creation"""
@@ -117,13 +120,16 @@ def test_analog_sensors():
     print("=== ANALOG SENSOR TEST COMPLETE ===\n")
 
 def test_i2c_devices():
-    """Test I2C sensors (Tests b & c)"""
-    print("\n=== TESTING I2C SENSORS ===")
+    """Test I2C sensors (Tests b & c) with updated pins"""
+    print("\n=== TESTING I2C SENSORS (SCL=23, SDA=21) ===")
     power_sensors(True)
     
     try:
-        # Initialize I2C bus
-        i2c = I2C(I2C_BUS_ID)
+        # Initialize I2C bus with specific pins
+        i2c = I2C(I2C_BUS_ID,
+                 scl=Pin(I2C_SCL_PIN),
+                 sda=Pin(I2C_SDA_PIN))
+        
         detected = i2c.scan()
         print("Detected I2C addresses:", [hex(addr) for addr in detected])
         
