@@ -10,6 +10,8 @@ import json
 # Reuse sensor creation logic from main code
 from sensors.base import sensor_registry
 
+
+
 # Configuration - Update these according to your hardware
 SENSOR_CONFIG_PATH = "config/sensors.json"
 RELAY_PINS_UNDER_TEST = [12, 13, 14, 27]
@@ -91,6 +93,9 @@ def test_rtc():
 def test_analog_sensors():
     """Test analog sensors (Test a)"""
     print("\n=== TESTING ANALOG SENSORS ===")
+    print("\n Registering sensors ")
+    import sensors.amonia.sen0567 
+    import sensors.hydrogen_sulfide.sen0568
     power_sensors(True)
     
     sensor_configs = load_sensor_config()
@@ -122,6 +127,8 @@ def test_analog_sensors():
 def test_i2c_devices():
     """Test I2C sensors (Tests b & c) with updated pins"""
     print("\n=== TESTING I2C SENSORS (SCL=23, SDA=21) ===")
+    print("Registering i2c Sensor")
+    import sensors.pressure.bmp3901
     power_sensors(True)
     
     try:
