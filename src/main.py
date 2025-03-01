@@ -22,16 +22,92 @@ from local_network.wifi import connect
 relay1 = Pin(13, Pin.OUT)
 relay2 = Pin(14, Pin.OUT)
 
+# Aerator relays - Added for alternating control
+relay3 = Pin(12, Pin.OUT)
+relay4 = Pin(27, Pin.OUT)
+
 mqtt = MQTTManager()
 
+# === AERATOR CONTROL SYSTEM ===
+aerator_timer = Timer(2)  # Separate timer for aerator control
+active_aerator_relay = 3  # Start with relay3 (will alternate between 3 and 4)
+
+def aerator_on():
+    """Turn ON the currently active aerator relay"""
+    global active_aerator_relay
+    if active_aerator_relay == 3:
+        relay3.value(1)
+        print("Aerator ON (Relay 3)")
+    else:
+        relay4.value(1)
+        print("Aerator ON (Relay 4)")
+
+def aerator_off():
+    """Turn OFF both aerator relays"""
+    relay3.value(0)
+    relay4.value(0)
+    print("Aerator OFF")
+
+def switch_active_relay():
+    """Switch the active relay for the next cycle"""
+    global active_aerator_relay
+    # Toggle between 3 and 4
+    active_aerator_relay = 4 if active_aerator_relay == 3 else 3
+    print(f"Next aerator cycle will use Relay {active_aerator_relay}")
+
+def aerator_cycle_on(_):
+    """Start aerator ON cycle (3 hours)"""
+    aerator_on()
+    # Schedule turn off in 3 hours (3 * 60 * 60 * 1000 ms)
+    Timer(3).init(period=10800000, mode=Timer.ONE_SHOT, 
+                 callback=aerator_cycle_off)
+
+def aerator_cycle_off(_):
+    """Start aerator OFF cycle (3 hours)"""
+    aerator_off()
+    # Switch which relay will be active next time
+    switch_active_relay()
+    # Schedule turn on in 3 hours (3 * 60 * 60 * 1000 ms)
+    Timer(4).init(period=10800000, mode=Timer.ONE_SHOT, 
+                 callback=aerator_cycle_on)
+
+def start_aerator_schedule():
+    """Initialize and start the aerator schedule"""
+    # Turn off both aerator relays to start
+    aerator_off()
+    # Start the ON cycle immediately
+    aerator_cycle_on(None)
+    print("Aerator schedule started: 3 hours ON, 3 hours OFF, alternating relays")
+
+def test_all_relays():
+    """Test all relays with ON-OFF cycle"""
+    print("Testing all relays...")
+    # Test sensor relays
+    relay1.value(1)
+    relay2.value(1)
+    time.sleep(1)
+    relay1.value(0)
+    relay2.value(0)
+    
+    # Test aerator relays
+    relay3.value(1)
+    time.sleep(1)
+    relay3.value(0)
+    relay4.value(1)
+    time.sleep(1)
+    relay4.value(0)
+    print("Relay test completed")
+# === END AERATOR CONTROL SYSTEM ===
+
+# Original sensor relay functions
 def activate_relays():
-    """Activate both relays and wait for stabilization."""
+    """Activate both sensor relays and wait for stabilization."""
     relay1.value(1)
     relay2.value(1)
     time.sleep(2)  # Allow time for stabilization
 
 def deactivate_relays():
-    """Deactivate both relays."""
+    """Deactivate both sensor relays."""
     relay1.value(0)
     relay2.value(0)
 
@@ -123,6 +199,12 @@ def check_time(timer):
 print("Initializing...")
 wifi_connected = connect()
 print(f"WiFi status: {'Connected' if wifi_connected else 'Disconnected'}")
+
+# Test all relays
+test_all_relays()
+
+# Start aerator control system
+start_aerator_schedule()
 
 # Initialize RTC
 rtc = init_rtc()
