@@ -29,74 +29,59 @@ relay4 = Pin(27, Pin.OUT)
 mqtt = MQTTManager()
 
 # === AERATOR CONTROL SYSTEM ===
-aerator_timer = Timer(2)  # Separate timer for aerator control
-active_aerator_relay = 3  # Start with relay3 (will alternate between 3 and 4)
+aerator_timer = Timer(2)
+aerator_active = False 
 
 def aerator_on():
-    """Turn ON the currently active aerator relay"""
-    global active_aerator_relay
-    if active_aerator_relay == 3:
-        relay3.value(1)
-        print("Aerator ON (Relay 3)")
-    else:
-        relay4.value(1)
-        print("Aerator ON (Relay 4)")
+    """Enciende ambos relevadores del aireador"""
+    relay3.value(1)
+    relay4.value(1)
+    print("Aerador ENCENDIDO (Ambos relevadores)")
 
 def aerator_off():
-    """Turn OFF both aerator relays"""
+    """Apaga ambos relevadores del aireador"""
     relay3.value(0)
     relay4.value(0)
-    print("Aerator OFF")
-
-def switch_active_relay():
-    """Switch the active relay for the next cycle"""
-    global active_aerator_relay
-    # Toggle between 3 and 4
-    active_aerator_relay = 4 if active_aerator_relay == 3 else 3
-    print(f"Next aerator cycle will use Relay {active_aerator_relay}")
+    print("Aerador APAGADO")
 
 def aerator_cycle_on(_):
-    """Start aerator ON cycle (3 hours)"""
+    """Inicia ciclo de encendido (3 horas)"""
     aerator_on()
-    # Schedule turn off in 3 hours (3 * 60 * 60 * 1000 ms)
+    # Programa el apagado en 3 horas
     Timer(3).init(period=10800000, mode=Timer.ONE_SHOT, 
                  callback=aerator_cycle_off)
 
 def aerator_cycle_off(_):
-    """Start aerator OFF cycle (3 hours)"""
+    """Inicia ciclo de apagado (3 horas)"""
     aerator_off()
-    # Switch which relay will be active next time
-    switch_active_relay()
-    # Schedule turn on in 3 hours (3 * 60 * 60 * 1000 ms)
+    # Programa el encendido en 3 horas
     Timer(4).init(period=10800000, mode=Timer.ONE_SHOT, 
                  callback=aerator_cycle_on)
 
 def start_aerator_schedule():
-    """Initialize and start the aerator schedule"""
-    # Turn off both aerator relays to start
-    aerator_off()
-    # Start the ON cycle immediately
-    aerator_cycle_on(None)
-    print("Aerator schedule started: 3 hours ON, 3 hours OFF, alternating relays")
+    """Inicializa y comienza el programa del aireador"""
+    aerator_off()  # Asegura que comience apagado
+    aerator_cycle_on(None)  # Inicia el primer ciclo
+    print("Programa del aireador iniciado: 3 horas ENCENDIDO, 3 horas APAGADO")
+
 
 def test_all_relays():
-    """Test all relays with ON-OFF cycle"""
-    print("Testing all relays...")
-    # Test sensor relays
+    """Test de todos los relevadores"""
+    print("Probando relevadores...")
+    # Test de relevadores de sensores
     relay1.value(1)
     relay2.value(1)
     time.sleep(1)
     relay1.value(0)
     relay2.value(0)
     
-    # Test aerator relays
+    # Test de relevadores del aireador (ambos juntos)
     relay3.value(1)
-    time.sleep(1)
-    relay3.value(0)
     relay4.value(1)
     time.sleep(1)
+    relay3.value(0)
     relay4.value(0)
-    print("Relay test completed")
+    print("Prueba de relevadores completada")
 # === END AERATOR CONTROL SYSTEM ===
 
 # Original sensor relay functions
