@@ -33,9 +33,9 @@ system_timer = Timer(1)
 system_state = 0
 
 # Constantes de tiempo (en milisegundos)
-ACTIVE_TIME = 60 * 1000  # 3 horas encendido
-INACTIVE_TIME = 60 * 1000  # 3 horas apagado
-SENSOR_READ_BEFORE_OFF = 5 * 1000  # 5 minutos antes de apagar
+ACTIVE_TIME = 3 * 60 * 60 * 1000  # 3 horas encendido
+INACTIVE_TIME = 3 * 60 * 60 * 1000  # 3 horas apagado
+SENSOR_READ_BEFORE_OFF = 5 * 60 * 1000  # 5 minutos antes de apagar
 
 def activate_all():
     """Activa el aireador y energiza los sensores"""
