@@ -6,8 +6,8 @@
 #include <esp_task_wdt.h>
 
 // Define pin assignments
-#define RELAY_LOAD_1 12  // Relay for load 1
-#define RELAY_LOAD_2 27  // Relay for load 2
+#define RELAY_LOAD_1 12    // Relay for load 1 (aerator)
+#define RELAY_LOAD_2 27    // Relay for load 2 (aerator)
 #define RELAY_SENSOR_1 13  // Relay for energizing sensor 1
 #define RELAY_SENSOR_2 14  // Relay for energizing sensor 2
 #define NH3_SENSOR_PIN 36  // Analog pin for NH3 sensor
@@ -25,7 +25,7 @@ const char* mqtt_client_id = "ESP32_SENSOR_001";
 
 // Timing constants
 const unsigned long SENSOR_READ_INTERVAL = 30000;  // Read sensors every 30 seconds
-const unsigned long RELAY_CYCLE_INTERVAL = 3600000;  // Cycle relays every hour (3600000 ms)
+const unsigned long RELAY_CYCLE_INTERVAL = 30000;  // Cycle relays every hour (3600000 ms)
 const unsigned long WDT_TIMEOUT = 30;  // Watchdog timeout in seconds
 
 // Relay monitoring
@@ -35,8 +35,8 @@ unsigned long lastRelayCycleTime = 0;  // Last time relays were cycled
 unsigned long lastDailyCycleReset = 0;  // Last time the cycle counter was reset
 
 // Sensor calibration values
-const float NH3_CALIBRATION_FACTOR = 0.1;  // Example calibration factor
-const float H2S_CALIBRATION_FACTOR = 0.05;  // Example calibration factor
+const float NH3_CALIBRATION_FACTOR = 1;  // Example calibration factor
+const float H2S_CALIBRATION_FACTOR = 1;  // Example calibration factor
 const float ANALOG_REFERENCE = 3.3;  // ADC reference voltage
 
 // Initialize objects
@@ -109,14 +109,6 @@ void loop() {
   if (millis() - lastRelayControlTime > RELAY_CYCLE_INTERVAL) {
     controlRelays();
     lastRelayControlTime = millis();
-  }
-  
-  // Read sensors and send data periodically
-  static unsigned long lastSensorReadTime = 0;
-  if (millis() - lastSensorReadTime > SENSOR_READ_INTERVAL) {
-    readSensors();
-    sendSensorData(nh3_value, h2s_value, pressure_value, temperature_value);
-    lastSensorReadTime = millis();
   }
   
   // Check if we need to reset daily relay cycle counter (once per day)
@@ -240,10 +232,27 @@ void connectToMQTT() {
 }
 
 void controlRelays() {
-  // This function implements the relay control logic
-  // For this example, we'll simply toggle the relays based on timing
+  // Primero activamos los relevadores de sensores
+  digitalWrite(RELAY_SENSOR_1, HIGH);
+  digitalWrite(RELAY_SENSOR_2, HIGH);
+  relayCycleCount[2]++;
+  relayCycleCount[3]++;
   
-  // Toggle relay_load_1 and relay_load_2 (pins 12, 27)
+  // Esperar estabilización de sensores
+  delay(2000);
+  
+  // Leer sensores mientras están energizados
+  readSensors();
+  
+  // Apagar relevadores de sensores
+  digitalWrite(RELAY_SENSOR_1, LOW);
+  digitalWrite(RELAY_SENSOR_2, LOW);
+  
+  // Enviar datos inmediatamente después de la lectura
+  sendSensorData(nh3_value, h2s_value, pressure_value, temperature_value);
+
+  // Opcional: Mantener lógica original de relevadores de carga si es necesaria
+  // Toggle de relevadores de carga (aeradores)
   relay_states[0] = !relay_states[0];
   digitalWrite(RELAY_LOAD_1, relay_states[0] ? HIGH : LOW);
   relayCycleCount[0]++;
@@ -251,41 +260,6 @@ void controlRelays() {
   relay_states[1] = !relay_states[1];
   digitalWrite(RELAY_LOAD_2, relay_states[1] ? HIGH : LOW);
   relayCycleCount[1]++;
-  
-  Serial.print("Load relays toggled. States: ");
-  Serial.print(relay_states[0]);
-  Serial.print(", ");
-  Serial.println(relay_states[1]);
-  
-  // For sensor relays, we'll turn them on for sensor reading and off afterward
-  // Turn on sensor relays before reading
-  relay_states[2] = true;
-  digitalWrite(RELAY_SENSOR_1, HIGH);
-  relayCycleCount[2]++;
-  
-  relay_states[3] = true;
-  digitalWrite(RELAY_SENSOR_2, HIGH);
-  relayCycleCount[3]++;
-  
-  Serial.println("Sensor relays activated for readings");
-  
-  // Allow sensors to stabilize
-  delay(2000);
-  
-  // Read sensors while they're powered
-  readSensors();
-  
-  // Turn off sensor relays to save power
-  relay_states[2] = false;
-  digitalWrite(RELAY_SENSOR_1, LOW);
-  
-  relay_states[3] = false;
-  digitalWrite(RELAY_SENSOR_2, LOW);
-  
-  Serial.println("Sensor relays deactivated after readings");
-  
-  // Send the data after reading
-  sendSensorData(nh3_value, h2s_value, pressure_value, temperature_value);
 }
 
 void readSensors() {
@@ -306,7 +280,6 @@ void readSensors() {
     pressure_value = 0;
     temperature_value = 0;
   }
-  
   // Print sensor values for debugging
   Serial.println("Sensor Readings:");
   Serial.print("  NH3: ");
