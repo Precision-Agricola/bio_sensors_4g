@@ -3,6 +3,7 @@ from machine import Pin, UART
 import time
 import network
 import json
+import struct
 
 # Initialize pins
 boot_pin = Pin(25, Pin.IN, Pin.PULL_DOWN)
@@ -23,6 +24,25 @@ def send_rs485(data, uart, de_re):
     time.sleep_ms(10)  # Wait for transmission
     de_re.off()  # Back to reception mode
     time.sleep_ms(100)  # Wait for response
+
+def ieee754_to_float(bytes_data):
+    # Convert 4 bytes to an IEEE-754 float
+    return struct.unpack('>f', bytes_data)[0]
+
+def decode_modbus_response(response):
+    if not response or len(response) < 7:
+        return None
+    
+    # Extract the relevant bytes (positions 3-6 contain the float data)
+    relevant_bytes = response[3:7]
+    
+    # Convert to IEEE-754 float
+    try:
+        float_value = ieee754_to_float(relevant_bytes)
+        return float_value
+    except Exception as e:
+        print(f"Error decoding float: {e}")
+        return None
 
 def blink_working_relay(count=1, duration=1):
     for _ in range(count):
@@ -51,6 +71,73 @@ def setup_wifi():
 # Simple HTTP server for logs
 def start_http_server():
     import socket
+    
+    # Create the HTML file in the filesystem
+    try:
+        with open('index.html', 'w') as f:
+            f.write('''<!DOCTYPE html>
+<html>
+<head>
+    <title>Precisión Agrícola - RS485 Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; margin: 20px; background-color: #f0f0f0; }
+        .header { background-color: #4CAF50; color: white; padding: 10px; text-align: center; }
+        .container { background-color: white; padding: 15px; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        .refresh-btn { background-color: #4CAF50; color: white; padding: 10px 15px; 
+                      border: none; cursor: pointer; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Precisión Agrícola - BIO-IOT</h1>
+        <h2>RS485 Sensor Monitor</h2>
+    </div>
+    <div class="container">
+        <button class="refresh-btn" onclick="fetchData()">Refresh Data</button>
+        <div id="data-container">Loading...</div>
+    </div>
+    <script>
+        function fetchData() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    let html = '<h3>Sensor Readings</h3><table><tr><th>Time</th><th>Command</th>' +
+                              '<th>Value</th><th>Status</th></tr>';
+                    
+                    data.forEach(item => {
+                        const date = new Date(item.timestamp * 1000);
+                        const time = date.toLocaleTimeString();
+                        const status = item.status === 'success' ? 
+                            '<span class="success">Success</span>' : 
+                            '<span class="error">Failed</span>';
+                        
+                        html += '<tr><td>' + time + '</td><td>' + 
+                               (item.command || '-') + '</td><td>' + 
+                               (item.decoded_value !== undefined ? item.decoded_value : '-') + 
+                               '</td><td>' + status + '</td></tr>';
+                    });
+                    
+                    html += '</table>';
+                    document.getElementById('data-container').innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('data-container').innerHTML = 
+                        '<p class="error">Error: ' + error.message + '</p>';
+                });
+        }
+        fetchData();
+        setInterval(fetchData, 5000);
+    </script>
+</body>
+</html>''')
+    except Exception as e:
+        print(f"Error creating HTML file: {e}")
+    
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(('', 80))
     s.listen(5)
@@ -80,31 +167,38 @@ def main():
     http_server = start_http_server()
     print("HTTP server started")
     
-    # RS485 test command (Modbus read holding registers)
-    command_1 = b'\x01\x03\x04\x0a\x00\x02\xE5\x39'
+    # RS485 test commands (Modbus read holding registers)
+    command_1 = b'\x01\x03\x04\x0a\x00\x02\xE5\x39'  # Original command
+    command_2 = b'\x01\x03\x04\x08\x00\x02\x44\xF9'  # Temperature command
     
     # Main loop
     while True:
         try:
-            # Send RS485 command
+            # Send first RS485 command
             send_rs485(command_1, uart, de_re)
             
             # Wait for response
             time.sleep(0.5)
-            response = uart.read()
+            response1 = uart.read()
             
-            # Process response
+            # Process first response
             timestamp = time.time()
+            cmd1_value = None
             
-            if response:
+            if response1:
                 # Successful reading
-                blink_working_relay(1, 0.5)
-                hex_response = ' '.join([f'{b:02X}' for b in response])
+                blink_working_relay(1, 0.2)
+                hex_response = ' '.join([f'{b:02X}' for b in response1])
+                
+                # Decode the float value
+                cmd1_value = decode_modbus_response(response1)
                 
                 # Add to log buffer (limit size)
                 log_entry = {
                     "timestamp": timestamp,
-                    "data": hex_response,
+                    "command": "cmd1",
+                    "raw_data": hex_response,
+                    "decoded_value": cmd1_value,
                     "status": "success"
                 }
                 
@@ -113,9 +207,54 @@ def main():
                     log_buffer.pop(0)
             else:
                 # Failed reading
-                blink_fail_relay(1, 1)
+                blink_fail_relay(1, 0.5)
                 log_entry = {
                     "timestamp": timestamp,
+                    "command": "cmd1",
+                    "status": "no_response"
+                }
+                log_buffer.append(log_entry)
+            
+            # Wait between commands
+            time.sleep(2)
+            
+            # Send second RS485 command
+            send_rs485(command_2, uart, de_re)
+            
+            # Wait for response
+            time.sleep(0.5)
+            response2 = uart.read()
+            
+            # Process second response
+            timestamp = time.time()
+            cmd2_value = None
+            
+            if response2:
+                # Successful reading
+                blink_working_relay(1, 0.2)
+                hex_response = ' '.join([f'{b:02X}' for b in response2])
+                
+                # Decode the float value
+                cmd2_value = decode_modbus_response(response2)
+                
+                # Add to log buffer (limit size)
+                log_entry = {
+                    "timestamp": timestamp,
+                    "command": "cmd2",
+                    "raw_data": hex_response,
+                    "decoded_value": cmd2_value,
+                    "status": "success"
+                }
+                
+                log_buffer.append(log_entry)
+                if len(log_buffer) > 20:  # Keep only last 20 readings
+                    log_buffer.pop(0)
+            else:
+                # Failed reading
+                blink_fail_relay(1, 0.5)
+                log_entry = {
+                    "timestamp": timestamp,
+                    "command": "cmd2",
                     "status": "no_response"
                 }
                 log_buffer.append(log_entry)
@@ -124,10 +263,24 @@ def main():
             try:
                 conn, addr = http_server.accept()
                 request = conn.recv(1024)
+                request_str = request.decode()
                 
-                # Simple HTTP response with log data
-                response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"
-                response += json.dumps(log_buffer)
+                # Check the request path
+                if 'GET /data' in request_str:
+                    # Return JSON data
+                    response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"
+                    response += json.dumps(log_buffer)
+                elif 'GET /' in request_str:
+                    # Return the HTML page
+                    response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"
+                    try:
+                        with open('index.html', 'r') as f:
+                            response += f.read()
+                    except:
+                        response += "<html><body><h1>Error loading page</h1></body></html>"
+                else:
+                    # Not found
+                    response = "HTTP/1.1 404 Not Found\r\n\r\n"
                 
                 conn.send(response)
                 conn.close()
