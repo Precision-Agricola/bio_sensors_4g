@@ -145,24 +145,10 @@ void initRelays() {
 
 // Fix for initSensors() function - Pin mode issue
 void initSensors() {
-  // Initialize I2C for BMP3901 sensor
-  Wire.begin();
-  if (!bmp.begin_I2C()) {
-    Serial.println("Could not find a valid BMP3XX sensor, check wiring!");
-    // Continue anyway as we might still have the analog sensors
-  } else {
-    // Set up BMP sensor with correct constant names
-    bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
-    bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
-    bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
-    Serial.println("BMP3XX pressure sensor initialized");
-  }
-  
-  // Fixed pinMode calls
-  pinMode((uint8_t)NH3_SENSOR_PIN, INPUT);
-  pinMode((uint8_t)H2S_SENSOR_PIN, INPUT);
-  
-  Serial.println("Analog sensors initialized");
+  pinMode(NH3_SENSOR_PIN, INPUT);
+  pinMode(H2S_SENSOR_PIN, INPUT);
+
+  Serial.println("Sensores analógicos inicializados");
 }
 
 
@@ -210,7 +196,7 @@ void connectToWiFi() {
 void connectToMQTT() {
   int attempts = 0;
   
-  while (!client.connected() && attempts < 5) {
+  while (!client.connected() && attempts < 10) {
     Serial.println("Connecting to MQTT broker...");
     
     if (client.connect(mqtt_client_id)) {
@@ -219,13 +205,13 @@ void connectToMQTT() {
       attempts++;
       Serial.print("Failed, rc=");
       Serial.print(client.state());
-      Serial.println(" Retrying in 2 seconds...");
-      delay(2000);
+      Serial.println(" Retrying in 5 seconds...");
+      delay(10000);
     }
   }
   
   if (!client.connected()) {
-    Serial.println("MQTT connection failed after multiple attempts. Restarting ESP32...");
+    Serial.println("MQTT connection failed. Restarting ESP32...");
     delay(1000);
     ESP.restart();
   }
@@ -240,7 +226,11 @@ void controlRelays() {
   
   // Esperar estabilización de sensores
   delay(2000);
-  
+  if (!bmp.begin_I2C(0x77, &Wire, 21, 23)) {
+    Serial.println("ERROR: No se encontró BMP3XX después de energizar. Verifica conexiones.");
+  } else {
+    Serial.println("BMP3XX inicializado correctamente después de energizar.");
+  }
   // Leer sensores mientras están energizados
   readSensors();
   
@@ -263,40 +253,28 @@ void controlRelays() {
 }
 
 void readSensors() {
-  // Read NH3 sensor (analog pin 36)
-  int nh3_raw = analogRead(NH3_SENSOR_PIN);
-  nh3_value = (nh3_raw / 4095.0) * ANALOG_REFERENCE * NH3_CALIBRATION_FACTOR;
-  
-  // Read H2S sensor (analog pin 39)
-  int h2s_raw = analogRead(H2S_SENSOR_PIN);
-  h2s_value = (h2s_raw / 4095.0) * ANALOG_REFERENCE * H2S_CALIBRATION_FACTOR;
-  
-  // Read pressure sensor (BMP3901 via I2C)
+  // Leer NH3 sensor (pin analógico 36)
+  nh3_value = analogRead(NH3_SENSOR_PIN);  // RAW
+
+  // Leer H2S sensor (pin analógico 39)
+  h2s_value = analogRead(H2S_SENSOR_PIN);  // RAW
+
+  // Leer presión y temperatura del BMP3XX
   if (bmp.performReading()) {
-    pressure_value = bmp.pressure / 100.0; // Convert Pa to hPa
-    temperature_value = bmp.temperature;
+    pressure_value = bmp.pressure;    // RAW en Pascales
+    temperature_value = bmp.temperature;  // RAW en °C
   } else {
-    Serial.println("Failed to read BMP sensor");
+    Serial.println("Error al leer BMP3XX");
     pressure_value = 0;
     temperature_value = 0;
   }
-  // Print sensor values for debugging
-  Serial.println("Sensor Readings:");
-  Serial.print("  NH3: ");
-  Serial.print(nh3_value);
-  Serial.println(" ppm");
-  
-  Serial.print("  H2S: ");
-  Serial.print(h2s_value);
-  Serial.println(" ppm");
-  
-  Serial.print("  Pressure: ");
-  Serial.print(pressure_value);
-  Serial.println(" hPa");
-  
-  Serial.print("  Temperature: ");
-  Serial.print(temperature_value);
-  Serial.println(" °C");
+
+  // Debug
+  Serial.println("Sensor Readings (RAW):");
+  Serial.print("  NH3: "); Serial.println(nh3_value);
+  Serial.print("  H2S: "); Serial.println(h2s_value);
+  Serial.print("  Pressure: "); Serial.println(pressure_value);
+  Serial.print("  Temperature: "); Serial.println(temperature_value);
 }
 
 void sendSensorData(float nh3, float h2s, float pressure, float temperature) {
