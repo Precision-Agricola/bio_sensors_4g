@@ -169,8 +169,7 @@ def main():
     
     # RS485 test commands (Modbus read holding registers)
     command_1 = b'\x01\x03\x04\x0a\x00\x02\xE5\x39'  # Original command
-    command_2 = b'\x01\x03\x04\x08\x00\x02\x44\xF9'  # Temperature command
-    
+    command_2 = b'\x01\x03\x04\x0c\x00\x02\x05\x38'  # Second command
     # Main loop
     while True:
         try:
