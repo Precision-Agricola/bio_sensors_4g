@@ -7,6 +7,8 @@ from sensors.base import sensor_registry
 RTC_CLK_PIN = 16  # Default CLK pin
 RTC_DIO_PIN = 21  # Default DIO pin
 RTC_CS_PIN = 23   # Default CS pin
+AERATOR_PIN_A = 12
+AERATOR_PIN_B = 27
 
 def load_sensor_config(config_file='config/sensors.json'):
     """Loads sensor configurations from a JSON file and instantiates sensor objects.
