@@ -1,300 +1,204 @@
-# main.py - runs after boot.py if in Sensing Mode
-from machine import Pin, UART
+"""Sensor reading and data transmission code
+
+Precisón Agrícola
+Investigation and Development Department
+
+@authors: Caleb De La Vara, Raúl Venegas, Eduardo Santos 
+Feb 2025
+Modified: March 2025 - Sistema de timer unificado
+
+"""
 import time
-import network
 import json
-import struct
+from machine import Pin, Timer
+from calendar.get_time import init_rtc, get_current_time
+import sensors.amonia.sen0567 
+import sensors.hydrogen_sulfide.sen0568
+import sensors.pressure.bmp3901
+from config.secrets import DEVICE_SERIAL, MQTT_CONFIG, WIFI_CONFIG
+from local_network.mqtt import MQTTManager
+from local_network.wifi import connect
 
-# Initialize pins
-boot_pin = Pin(25, Pin.IN, Pin.PULL_DOWN)
-de_re = Pin(22, Pin.OUT)
-working_relay = Pin(27, Pin.OUT)
-fail_relay = Pin(12, Pin.OUT)
+# Relay configuration
+relay1 = Pin(13, Pin.OUT)  # Sensor relay 1
+relay2 = Pin(14, Pin.OUT)  # Sensor relay 2
+relay3 = Pin(12, Pin.OUT)  # Aerator relay 1
+relay4 = Pin(27, Pin.OUT)  # Aerator relay 2
 
-# Only run this code in Sensing Mode
-if not boot_pin.value():
-    # In programming mode, exit
-    import sys
-    sys.exit()
+mqtt = MQTTManager()
 
-# RS485 functions
-def send_rs485(data, uart, de_re):
-    de_re.on()  # Transmission mode
-    uart.write(data)
-    time.sleep_ms(10)  # Wait for transmission
-    de_re.off()  # Back to reception mode
-    time.sleep_ms(100)  # Wait for response
+# === UNIFIED CONTROL SYSTEM ===
+system_timer = Timer(1)
+# Estado del sistema: 0 = apagado, 1 = encendido, 2 = lectura de sensores
+system_state = 0
 
-def ieee754_to_float(bytes_data):
-    # Convert 4 bytes to an IEEE-754 float
-    return struct.unpack('>f', bytes_data)[0]
+# Constantes de tiempo (en milisegundos)
+ACTIVE_TIME = 60 * 1000  # 3 horas encendido
+INACTIVE_TIME = 60 * 1000  # 3 horas apagado
+SENSOR_READ_BEFORE_OFF = 5 * 1000  # 5 minutos antes de apagar
 
-def decode_modbus_response(response):
-    if not response or len(response) < 7:
-        return None
+def activate_all():
+    """Activa el aireador y energiza los sensores"""
+    # Activar relevadores de sensores
+    relay1.value(1)
+    relay2.value(1)
+    # Activar relevadores del aireador
+    relay3.value(1)
+    relay4.value(1)
+    print("Sistema ACTIVADO: Aireador y sensores energizados")
+
+def deactivate_all():
+    """Apaga el aireador y desactiva los sensores"""
+    # Desactivar relevadores de sensores
+    relay1.value(0)
+    relay2.value(0)
+    # Desactivar relevadores del aireador
+    relay3.value(0)
+    relay4.value(0)
+    print("Sistema DESACTIVADO: Aireador y sensores apagados")
+
+def system_control(timer):
+    """Función de control del sistema basada en estados"""
+    global system_state
     
-    # Extract the relevant bytes (positions 3-6 contain the float data)
-    relevant_bytes = response[3:7]
+    if system_state == 0:
+        # Cambio de estado: apagado -> encendido
+        system_state = 1
+        activate_all()
+        # Programar lectura de sensores 5 minutos antes de finalizar
+        system_timer.init(period=ACTIVE_TIME - SENSOR_READ_BEFORE_OFF, 
+                         mode=Timer.ONE_SHOT, callback=system_control)
+        print(f"Sistema encendido por {(ACTIVE_TIME - SENSOR_READ_BEFORE_OFF) // 60000} minutos hasta lectura de sensores")
+        
+    elif system_state == 1:
+        # Cambio de estado: encendido -> lectura de sensores
+        system_state = 2
+        print("Realizando lectura de sensores antes de apagar...")
+        # Realizar lectura de sensores y enviar datos
+        sensor_routine()
+        # Programar apagado después de la lectura
+        system_timer.init(period=SENSOR_READ_BEFORE_OFF, 
+                         mode=Timer.ONE_SHOT, callback=system_control)
+        print(f"Sistema se apagará en {SENSOR_READ_BEFORE_OFF // 60000} minutos")
+        
+    elif system_state == 2:
+        # Cambio de estado: lectura de sensores -> apagado
+        system_state = 0
+        deactivate_all()
+        # Programar próximo encendido
+        system_timer.init(period=INACTIVE_TIME, 
+                         mode=Timer.ONE_SHOT, callback=system_control)
+        print(f"Sistema apagado por {INACTIVE_TIME // 60000} minutos")
+
+def test_all_relays():
+    """Test de todos los relevadores"""
+    print("Probando relevadores...")
+    # Test de relevadores de sensores
+    relay1.value(1)
+    relay2.value(1)
+    time.sleep(1)
+    relay1.value(0)
+    relay2.value(0)
     
-    # Convert to IEEE-754 float
+    # Test de relevadores del aireador
+    relay3.value(1)
+    relay4.value(1)
+    time.sleep(1)
+    relay3.value(0)
+    relay4.value(0)
+    print("Prueba de relevadores completada")
+# === END UNIFIED CONTROL SYSTEM ===
+
+def load_sensor_config(path="config/sensors.json"):
+    """Load sensor configurations from a JSON file."""
     try:
-        float_value = ieee754_to_float(relevant_bytes)
-        return float_value
+        with open(path, "r") as f:
+            return json.load(f)
     except Exception as e:
-        print(f"Error decoding float: {e}")
-        return None
+        print("Error loading sensor config:", e)
+        return []
 
-def blink_working_relay(count=1, duration=1):
-    for _ in range(count):
-        working_relay.value(1)
-        time.sleep(duration)
-        working_relay.value(0)
-        if _ < count - 1:
-            time.sleep(duration)
+def create_sensor(conf):
+    """Create a sensor instance based on its configuration."""
+    from sensors.base import sensor_registry  # Lazy import to avoid circular issues
+    if "signal" not in conf:
+        conf["signal"] = None
+    key = (conf["model"].strip().upper(), conf["protocol"].strip().upper())
+    sensor_cls = sensor_registry.get(key)
+    if sensor_cls:
+        return sensor_cls(**conf)
+    print(f"Unregistered sensor: {key}")
+    return None
 
-def blink_fail_relay(count=1, duration=3):
-    for _ in range(count):
-        fail_relay.value(1)
-        time.sleep(duration)
-        fail_relay.value(0)
+def test_sensors(sensor_configs):
+    """Test all sensors and return their status and readings."""
+    sensor_status = {}
+    for conf in sensor_configs:
+        sensor = create_sensor(conf)
+        if sensor:
+            reading = sensor.read()
+            sensor_status[conf["name"]] = {
+                "status": "OK" if reading is not None else "Error",
+                "reading": reading
+            }
+        else:
+            sensor_status[conf["name"]] = {"status": "Unregistered", "reading": None}
+    return sensor_status
 
-# Setup WiFi in AP mode for monitoring
-def setup_wifi():
-    ap = network.WLAN(network.AP_IF)
-    ap.active(True)
-    ap.config(essid="PrecisionAg-RS485", password="bioiot2025")
-    while not ap.active():
-        pass
-    print("WiFi AP active:", ap.ifconfig())
-    return ap
-
-# Simple HTTP server for logs
-def start_http_server():
-    import socket
-    
-    # Create the HTML file in the filesystem
-    try:
-        with open('index.html', 'w') as f:
-            f.write('''<!DOCTYPE html>
-<html>
-<head>
-    <title>Precisión Agrícola - RS485 Monitor</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body { font-family: Arial; margin: 20px; background-color: #f0f0f0; }
-        .header { background-color: #4CAF50; color: white; padding: 10px; text-align: center; }
-        .container { background-color: white; padding: 15px; margin-top: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        .success { color: green; }
-        .error { color: red; }
-        .refresh-btn { background-color: #4CAF50; color: white; padding: 10px 15px; 
-                      border: none; cursor: pointer; margin: 10px 0; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Precisión Agrícola - BIO-IOT</h1>
-        <h2>RS485 Sensor Monitor</h2>
-    </div>
-    <div class="container">
-        <button class="refresh-btn" onclick="fetchData()">Refresh Data</button>
-        <div id="data-container">Loading...</div>
-    </div>
-    <script>
-        function fetchData() {
-            fetch('/data')
-                .then(response => response.json())
-                .then(data => {
-                    let html = '<h3>Sensor Readings</h3><table><tr><th>Time</th><th>Command</th>' +
-                              '<th>Value</th><th>Status</th></tr>';
-                    
-                    data.forEach(item => {
-                        const date = new Date(item.timestamp * 1000);
-                        const time = date.toLocaleTimeString();
-                        const status = item.status === 'success' ? 
-                            '<span class="success">Success</span>' : 
-                            '<span class="error">Failed</span>';
-                        
-                        html += '<tr><td>' + time + '</td><td>' + 
-                               (item.command || '-') + '</td><td>' + 
-                               (item.decoded_value !== undefined ? item.decoded_value : '-') + 
-                               '</td><td>' + status + '</td></tr>';
-                    });
-                    
-                    html += '</table>';
-                    document.getElementById('data-container').innerHTML = html;
-                })
-                .catch(error => {
-                    document.getElementById('data-container').innerHTML = 
-                        '<p class="error">Error: ' + error.message + '</p>';
-                });
+def prepare_payload(sensor_status):
+    """Prepare a payload with timestamp, sensor status, and aerator status."""
+    return {
+        "device_id": DEVICE_SERIAL["device_id"],
+        "timestamp": time.time(),
+        "sensors": sensor_status,
+        "aerator_status": {
+            "relay3": relay3.value(),
+            "relay4": relay4.value()
         }
-        fetchData();
-        setInterval(fetchData, 5000);
-    </script>
-</body>
-</html>''')
-    except Exception as e:
-        print(f"Error creating HTML file: {e}")
-    
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(('', 80))
-    s.listen(5)
-    return s
+    }
 
-# Log buffer to store sensor readings
-log_buffer = []
-
-# Main function
-def main():
-    global log_buffer
-    
-    # Setup UART for RS485 - Fixed line
-    try:
-        # The corrected line: UART2 with proper pin assignments
-        uart = UART(2, baudrate=9600, tx=1, rx=3)  # Using recommended GPIO pins for UART2
-        blink_working_relay(2)  # Indicate successful UART setup
-    except Exception as e:
-        print(f"UART setup failed: {e}")
-        blink_fail_relay()
+def sensor_routine():
+    """Execute sensor reading and send data via MQTT."""
+    sensor_configs = load_sensor_config()
+    if not sensor_configs:
+        print("No sensor configurations found!")
         return
     
-    # Setup WiFi
-    ap = setup_wifi()
-    
-    # Start HTTP server
-    http_server = start_http_server()
-    print("HTTP server started")
-    
-    # RS485 test commands (Modbus read holding registers)
-    command_1 = b'\x01\x03\x04\x0a\x00\x02\xE5\x39'  # Original command
-    command_2 = b'\x01\x03\x04\x0c\x00\x02\x05\x38'  # Second command
-    # Main loop
-    while True:
-        try:
-            # Send first RS485 command
-            send_rs485(command_1, uart, de_re)
-            
-            # Wait for response
-            time.sleep(0.5)
-            response1 = uart.read()
-            
-            # Process first response
-            timestamp = time.time()
-            cmd1_value = None
-            
-            if response1:
-                # Successful reading
-                blink_working_relay(1, 0.2)
-                hex_response = ' '.join([f'{b:02X}' for b in response1])
-                
-                # Decode the float value
-                cmd1_value = decode_modbus_response(response1)
-                
-                # Add to log buffer (limit size)
-                log_entry = {
-                    "timestamp": timestamp,
-                    "command": "cmd1",
-                    "raw_data": hex_response,
-                    "decoded_value": cmd1_value,
-                    "status": "success"
-                }
-                
-                log_buffer.append(log_entry)
-                if len(log_buffer) > 20:  # Keep only last 20 readings
-                    log_buffer.pop(0)
-            else:
-                # Failed reading
-                blink_fail_relay(1, 0.5)
-                log_entry = {
-                    "timestamp": timestamp,
-                    "command": "cmd1",
-                    "status": "no_response"
-                }
-                log_buffer.append(log_entry)
-            
-            # Wait between commands
-            time.sleep(2)
-            
-            # Send second RS485 command
-            send_rs485(command_2, uart, de_re)
-            
-            # Wait for response
-            time.sleep(0.5)
-            response2 = uart.read()
-            
-            # Process second response
-            timestamp = time.time()
-            cmd2_value = None
-            
-            if response2:
-                # Successful reading
-                blink_working_relay(1, 0.2)
-                hex_response = ' '.join([f'{b:02X}' for b in response2])
-                
-                # Decode the float value
-                cmd2_value = decode_modbus_response(response2)
-                
-                # Add to log buffer (limit size)
-                log_entry = {
-                    "timestamp": timestamp,
-                    "command": "cmd2",
-                    "raw_data": hex_response,
-                    "decoded_value": cmd2_value,
-                    "status": "success"
-                }
-                
-                log_buffer.append(log_entry)
-                if len(log_buffer) > 20:  # Keep only last 20 readings
-                    log_buffer.pop(0)
-            else:
-                # Failed reading
-                blink_fail_relay(1, 0.5)
-                log_entry = {
-                    "timestamp": timestamp,
-                    "command": "cmd2",
-                    "status": "no_response"
-                }
-                log_buffer.append(log_entry)
-            
-            # Check for HTTP connections
-            try:
-                conn, addr = http_server.accept()
-                request = conn.recv(1024)
-                request_str = request.decode()
-                
-                # Check the request path
-                if 'GET /data' in request_str:
-                    # Return JSON data
-                    response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"
-                    response += json.dumps(log_buffer)
-                elif 'GET /' in request_str:
-                    # Return the HTML page
-                    response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"
-                    try:
-                        with open('index.html', 'r') as f:
-                            response += f.read()
-                    except:
-                        response += "<html><body><h1>Error loading page</h1></body></html>"
-                else:
-                    # Not found
-                    response = "HTTP/1.1 404 Not Found\r\n\r\n"
-                
-                conn.send(response)
-                conn.close()
-            except OSError:
-                # No connection available, continue
-                pass
-                
-            # Wait before next reading
-            time.sleep(5)
-            
-        except Exception as e:
-            print(f"Error in main loop: {e}")
-            blink_fail_relay()
-            time.sleep(10)
+    # No necesitamos activar los relés aquí ya que ya están encendidos por el sistema unificado
+    try:
+        status = test_sensors(sensor_configs)
+        payload = prepare_payload(status)
+        
+        if mqtt.publish(payload):
+            print("Datos enviados por MQTT exitosamente")
+        else:
+            print("Datos guardados en respaldo local")
+    except Exception as e:
+        print("Error en la rutina de sensores:", e)
 
-# Run the main function
-if __name__ == "__main__":
-    main()
+# Ensure WiFi is connected before starting
+print("Inicializando sistema...")
+wifi_connected = connect()
+print(f"Estado de WiFi: {'Conectado' if wifi_connected else 'Desconectado'}")
+
+# Test all relays
+test_all_relays()
+
+# Inicializar RTC
+rtc = init_rtc()
+
+# Iniciar el sistema unificado
+print("Iniciando sistema de control unificado...")
+# Asegurar que todo comience apagado
+deactivate_all()
+# Iniciar el ciclo inmediatamente (comienza activando todo)
+system_control(None)
+
+# Main loop
+while True:
+    # Try reconnecting WiFi periodically if it's not connected
+    if not wifi_connected:
+        wifi_connected = connect()
+        if wifi_connected:
+            print("WiFi reconectado")
+    time.sleep(1)
