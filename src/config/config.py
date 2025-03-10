@@ -3,16 +3,32 @@
 import json
 from sensors.base import sensor_registry
 
-
-RTC_CLK_PIN = 16  # Default CLK pin
-RTC_DIO_PIN = 21  # Default DIO pin
-RTC_CS_PIN = 23   # Default CS pin
+RTC_CLK_PIN = 16
+RTC_DIO_PIN = 21
+RTC_CS_PIN = 23
 AERATOR_PIN_A = 12
 AERATOR_PIN_B = 27
 BOOT_SELECTOR_PIN = 25
 TEST_SELECTOR_PIN = 26
-CURRENT_MODE = 'EMERGENCY'
-CURRENT_SPEED = 1
+
+# Estado del sistema (variables)
+_runtime_state = {
+    "CURRENT_MODE": "EMERGENCY",  # Valor por defecto
+    "CURRENT_SPEED": 1            # Valor por defecto
+}
+
+# Getters y setters para un mejor control
+def get_mode():
+    return _runtime_state["CURRENT_MODE"]
+
+def set_mode(mode):
+    _runtime_state["CURRENT_MODE"] = mode
+
+def get_speed():
+    return _runtime_state["CURRENT_SPEED"]
+
+def set_speed(speed):
+    _runtime_state["CURRENT_SPEED"] = speed
 
 def load_sensor_config(config_file='config/sensors.json'):
     """Loads sensor configurations from a JSON file and instantiates sensor objects.
