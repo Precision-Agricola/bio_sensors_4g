@@ -1,6 +1,6 @@
 from machine import Pin, WDT
 import uos, esp, time
-import config.config
+import config.runtime as config
 
 DIP_SW1 = Pin(config.BOOT_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
 DIP_SW2 = Pin(config.TEST_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
