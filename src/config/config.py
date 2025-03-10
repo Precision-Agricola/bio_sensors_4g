@@ -9,6 +9,10 @@ RTC_DIO_PIN = 21  # Default DIO pin
 RTC_CS_PIN = 23   # Default CS pin
 AERATOR_PIN_A = 12
 AERATOR_PIN_B = 27
+BOOT_SELECTOR_PIN = 25
+TEST_SELECTOR_PIN = 26
+CURRENT_MODE = 'EMERGENCY'
+CURRENT_SPEED = 1
 
 def load_sensor_config(config_file='config/sensors.json'):
     """Loads sensor configurations from a JSON file and instantiates sensor objects.
