@@ -5,7 +5,7 @@ March 2025
 """
 from machine import WDT
 from system.control.relays import LoadRelay
-import config.runtime as config
+import config.runtime as runtime_config
 
 def turn_on_aerators():
     """
@@ -15,8 +15,8 @@ def turn_on_aerators():
     """
     print("Initializing aerator control routine...")
     
-    time_factor = config.get_speed()
-    aerator_relays = LoadRelay(relay_pins=(config.AERATOR_PIN_A, config.AERATOR_PIN_B))
+    time_factor = runtime_config.get_speed()
+    aerator_relays = LoadRelay()
 
     on_time = 3 * 3600 // time_factor
     off_time = 3 * 3600 // time_factor
