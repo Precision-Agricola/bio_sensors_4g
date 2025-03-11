@@ -135,24 +135,23 @@ def test_i2c_devices():
     """Test I2C sensors (Tests b & c)"""
     print("\n=== TESTING I2C SENSORS ===")
     import sensors.pressure.bmp3901 
+    from utils.micropython_bmpxxx.bmpxxx import BMP390 
+
     # Power on sensors
     sensor_relay = SensorRelay()
     sensor_relay.activate_a()
     time.sleep(2)
     
     try:
-        # Initialize I2C bus
         i2c = SoftI2C(
             scl=Pin(I2C_SCL_PIN),
             sda=Pin(I2C_SDA_PIN))
         detected = i2c.scan()
         print("Detected I2C addresses:", [hex(addr) for addr in detected])
         
-        # Get configured I2C sensors
         sensor_configs = load_sensor_config()
         i2c_sensors = [s for s in sensor_configs if s.get("protocol", "").upper() == "I2C"]
         
-        # Test b: Address verification
         print("\n-- Address Check --")
         all_ok = True
         for conf in i2c_sensors:
@@ -163,27 +162,27 @@ def test_i2c_devices():
                 print(f"{conf['name']}: MISSING (0x{expected_addr:02x})")
                 all_ok = False
         
-        # Test c: Sensor reading
         if all_ok and i2c_sensors:
             print("\n-- Sensor Readings --")
             for conf in i2c_sensors:
                 try:
-                    sensor = create_sensor(conf)
-                    if sensor:
-                        reading = sensor.read()
-                        status = "OK" if reading is not None else "ERROR"
-                        print(f"{conf['name']}: {status} - {reading}")
+                    if conf["name"].lower() == "bmp390": 
+                        bmp = BMP390(i2c=i2c, address=int(conf['address'], 16))
+                        pressure = bmp.pressure
+                        temperature = bmp.temperature
+                        altitude = bmp.altitude
+                        print(f"{conf['name']}: OK - Pressure: {pressure:.2f} hPa, Temp: {temperature:.2f} °C, Altitude: {altitude:.2f} m")
+                    else:
+                        sensor = create_sensor(conf)
+                        if sensor:
+                            reading = sensor.read()
+                            status = "OK" if reading is not None else "ERROR"
+                            print(f"{conf['name']}: {status} - {reading}")
                 except Exception as e:
                     print(f"{conf['name']}: ERROR - {str(e)}")
-        elif not i2c_sensors:
-            print("No I2C sensors configured")
-        else:
-            print("\nSkipping readings due to missing devices")
-            
     except Exception as e:
-        print(f"I2C COMMUNICATION ERROR: {str(e)}")
-    
-    # Power off sensors
+        print(f"{conf['name']}: ERROR - {str(e)}")
+        
     sensor_relay.deactivate_all()
     print("=== I2C TEST COMPLETE ===\n")
 
