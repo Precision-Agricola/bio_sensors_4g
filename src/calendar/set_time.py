@@ -1,5 +1,5 @@
 from machine import Pin
-from calendar import ds1302
+import calendar.ds1302 as ds1302
 from config.config import load_device_config
 
 DEFAULT_RTC_CONFIG = {

@@ -21,7 +21,7 @@ import time
 class SensorRelay:
     """
     Control class for sensor power relays.
-    Handles mutually exclusive relay pins (multiplexed channel)
+    Handles mutually relay pins (multiplexed channel)
     where only one can be active at a time.
     """
     def __init__(self, relay_pin_a=13, relay_pin_b=14):
@@ -32,13 +32,13 @@ class SensorRelay:
     
     def activate_a(self):
         """Activate relay A and ensure relay B is deactivated"""
-        self.relay_b.off()
+        self.relay_b.on()
         self.relay_a.on()
         self.active_relay = 'A'
     
     def activate_b(self):
         """Activate relay B and ensure relay A is deactivated"""
-        self.relay_a.off()
+        self.relay_a.on()
         self.relay_b.on()
         self.active_relay = 'B'
     

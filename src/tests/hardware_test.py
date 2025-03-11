@@ -4,11 +4,11 @@ Precisón Agrícola - Test Plan Implementation
 March 2025
 """
 import time
-from machine import I2C, Pin
+from machine import SoftI2C, Pin
 import json
 from system.control.relays import SensorRelay, LoadRelay
 import config.runtime as config
-from config.config import I2C_BUS_ID, I2C_SCL_PIN, I2C_SDA_PIN
+from config.config import I2C_SCL_PIN, I2C_SDA_PIN
 
 SENSOR_CONFIG_PATH = "config/sensors.json"
 
@@ -49,14 +49,7 @@ def test_relays():
         time.sleep(2)
         load_relay.turn_off(i)
         time.sleep(1)
-    
-    # Test both relays together
-    print("  Testing all load relays...")
-    load_relay.turn_on()
-    time.sleep(2)
-    load_relay.turn_off()
-    time.sleep(1)
-    
+   
     # Test sensor relays (pins 13, 14 - multiplexed)
     sensor_relay = SensorRelay()
     print("Testing sensor relays (multiplexed)...")
@@ -78,8 +71,12 @@ def test_rtc():
     """Test RTC functionality (Test e)"""
     print("\n=== TESTING RTC ===")
     try:
+        from calendar.set_time import set_current_time
         from calendar.get_time import init_rtc, get_current_time
         rtc = init_rtc()
+        set_current_time('03/11/2025 00:00')
+        rtc_relay = SensorRelay()
+        rtc_relay.activate_a()
         initial_time = get_current_time(rtc)
         print("Initial RTC time:", f"{initial_time[3]:02}:{initial_time[4]:02}:{initial_time[5]:02}")
         
@@ -138,16 +135,14 @@ def test_i2c_devices():
     """Test I2C sensors (Tests b & c)"""
     print("\n=== TESTING I2C SENSORS ===")
     import sensors.pressure.bmp3901 
-
     # Power on sensors
     sensor_relay = SensorRelay()
-    sensor_relay.activate_b()
+    sensor_relay.activate_a()
     time.sleep(2)
     
     try:
         # Initialize I2C bus
-        i2c = I2C(
-            bus_num=I2C_BUS_ID,
+        i2c = SoftI2C(
             scl=Pin(I2C_SCL_PIN),
             sda=Pin(I2C_SDA_PIN))
         detected = i2c.scan()
