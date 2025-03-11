@@ -9,6 +9,9 @@ src/config/secrets.py
 # C extensions
 *.so
 
+#Play ground and backup code
+**backup**
+
 # Distribution / packaging
 .Python
 build/
