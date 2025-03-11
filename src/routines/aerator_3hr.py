@@ -1,21 +1,32 @@
-"""System base routine"""
+"""
+Aerator control routine module for BIO-IOT system
+Precision Agrícola - Investigation and Development Department
+March 2025
+"""
+from machine import WDT
+from system.control.relays import LoadRelay
+import config.runtime as config
 
-from machine import WTD, Timer
-from system.control import aerator_relays
+def turn_on_aerators():
+    """
+    Initialize and start the aerator cycle routine.
+    Aerators will run for 3 hours on, 3 hours off continuously.
+    Time is adjusted according to the system speed factor.
+    """
+    print("Initializing aerator control routine...")
+    
+    time_factor = config.get_speed()
+    aerator_relays = LoadRelay(relay_pins=(config.AERATOR_PIN_A, config.AERATOR_PIN_B))
 
-THREE_HOURS = 3 * 60 * 60 * 1000
-SIX_HOURS = 6 * 60 * 60 * 1000 
-
-wdt = WTD(timeout=SIX_HOURS + 500)
-
-timer = Timer(0)
-
-def turn_on_aerators(fixed_time = None):
-    [relay.on() for relay in aerator_relays]
-    wdt.feed()
-    timer.init(period=THREE_HOURS, mode=Timer.ONE_SHOT, callback=turn_off_aerators)
-
-def turn_off_aerators(fixed_time = None):
-    [relay.off() for relay in aerator_relays]
-    wdt.feed() 
-    timer.init(period=THREE_HOURS, mode=Timer.ONE_SHOT, callback=turn_on_aerators)
+    on_time = 3 * 3600 // time_factor
+    off_time = 3 * 3600 // time_factor
+    
+    wdt = WDT(timeout=8000)
+    
+    print(f"Starting aerator cycle: {on_time}s ON, {off_time}s OFF")
+    
+    try:
+        aerator_relays.cycle(on_time, off_time, cycles=999999, watchdog=wdt)
+    except Exception as e:
+        print(f"Error in aerator routine: {e}")
+        aerator_relays.turn_off()
