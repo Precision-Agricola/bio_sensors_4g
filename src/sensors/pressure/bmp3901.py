@@ -1,6 +1,7 @@
 # sensors/pressure/bmp3901.py
 from sensors.base import Sensor, register_sensor
 from protocols.i2c import init_i2c
+from config.config import I2C_SCL_PIN, I2C_SDA_PIN
 from utils.micropython_bmpxxx import bmpxxx
 
 @register_sensor("BMP3901", "i2c")
