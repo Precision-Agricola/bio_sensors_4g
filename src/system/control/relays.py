@@ -118,3 +118,20 @@ class LoadRelay:
             time.sleep(1)
             if watchdog:
                 watchdog.feed()
+
+    def get_state(self, relay_index=None):
+        """
+        Get the current state of specified relay or all relays
+        
+        Args:
+            relay_index: Index of the relay to check (0 or 1), or None for all
+            
+        Returns:
+            If relay_index is None: list of states for all relays
+            If relay_index is specified: state of that relay (True/False)
+        """
+        if relay_index is None:
+            return [relay.value() == 1 for relay in self.relays]
+        elif 0 <= relay_index < len(self.relays):
+            return self.relays[relay_index].value() == 1
+        return None
