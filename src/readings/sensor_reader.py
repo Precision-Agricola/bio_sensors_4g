@@ -1,8 +1,9 @@
-"""Script to read all sensors registered in the config/sensors.json file"""
+# readings/sensor_reader.py
 import json
 import time
 from sensors.base import sensor_registry
 from system.control.relays import SensorRelay
+
 import sensors.amonia.sen0567
 import sensors.hydrogen_sulfide.sen0568
 import sensors.pressure.bmp3901
@@ -49,7 +50,7 @@ class SensorReader:
         """
         settling = custom_settling_time if custom_settling_time is not None else self.settling_time
         readings = {}
-
+        
         if relay == 'A':
             self.sensor_relay.activate_a()
         elif relay == 'B':
