@@ -21,8 +21,6 @@ def main():
         print("Program mode active - Development interfaces enabled")
         print("No automatic routines will start")
         print("Use REPL to manually control system")
-        import sys
-        sys.exit(0)
     elif mode == "DEMO MODE":
         from tests.hardware_test import run_hardware_tests
         print(f"Demo mode active - Time acceleration: {time_factor}x")

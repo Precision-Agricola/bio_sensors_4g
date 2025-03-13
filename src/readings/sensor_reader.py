@@ -26,17 +26,26 @@ class SensorReader:
             self.sensors = []
             
             for config in sensor_configs:
-                model = config["model"].upper()
-                protocol = config["protocol"].upper()
-                key = (model, protocol)
-                
-                if key in sensor_registry:
-                    sensor_class = sensor_registry[key]
-                    sensor = sensor_class(**config)
-                    self.sensors.append(sensor)
-                    print(f"Sensor cargado: {config['name']}")
-                else:
-                    print(f"Sensor no encontrado: {model}, {protocol}")
+                try:
+                    model = config["model"].upper()
+                    protocol = config["protocol"].upper()
+                    key = (model, protocol)
+                    
+                    if key in sensor_registry:
+                        sensor_class = sensor_registry[key]
+                        # Imprimir información completa para depuración
+                        print(f"Creando sensor: {model} ({protocol})")
+                        print(f"Configuración: {config}")
+                        
+                        # Crear instancia del sensor
+                        sensor = sensor_class(**config)
+                        self.sensors.append(sensor)
+                        print(f"Sensor cargado: {config['name']}")
+                    else:
+                        print(f"Sensor no encontrado en registry: {model}, {protocol}")
+                        print(f"Registros disponibles: {list(sensor_registry.keys())}")
+                except Exception as e:
+                    print(f"Error al crear sensor {config.get('name', 'desconocido')}: {str(e)}")
         except Exception as e:
             print(f"Error al cargar sensores: {str(e)}")
     
@@ -51,26 +60,33 @@ class SensorReader:
         settling = custom_settling_time if custom_settling_time is not None else self.settling_time
         readings = {}
         
-        if relay == 'A':
-            self.sensor_relay.activate_a()
-        elif relay == 'B':
-            self.sensor_relay.activate_b()
-        else:
-            print(f"Relé '{relay}' no válido")
-            return {}
+        # Activar solo el relé A como mencionaste
+        self.sensor_relay.activate_a()
         
         print(f"Esperando tiempo de asentamiento ({settling}s)...")
         time.sleep(settling)
         
+        # Lista de sensores leídos exitosamente
+        successful_sensors = []
+        
         for sensor in self.sensors:
             try:
+                print(f"Leyendo sensor: {sensor.name} ({sensor.model})")
+                # Verificar si el sensor está inicializado
+                if not getattr(sensor, '_initialized', True):
+                    print(f"Sensor {sensor.name} no está inicializado, omitiendo")
+                    continue
+                    
                 reading = sensor.read()
                 if reading is not None:
                     readings[sensor.name] = reading
+                    successful_sensors.append(sensor.name)
             except Exception as e:
                 print(f"Error al leer sensor {sensor.name}: {str(e)}")
-        
+           
         self.sensor_relay.deactivate_all()
+        
+        print(f"Sensores leídos exitosamente: {successful_sensors}")
         
         self.last_readings = {
             "timestamp": time.time(),
