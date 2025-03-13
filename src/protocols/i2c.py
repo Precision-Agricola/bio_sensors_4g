@@ -1,4 +1,4 @@
-"""Implementación del protocolo I2C actualizado"""
+"""I2C Wrapper"""
 from machine import Pin
 from machine import SoftI2C as I2C
 from config.config import I2C_SCL_PIN, I2C_SDA_PIN
