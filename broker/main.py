@@ -202,7 +202,6 @@ def parse_mqtt_packet(packet):
             return None, None
             
         topic = packet[idx:idx + topic_len]
-        debug_print("Tema:", topic)
         
         idx += topic_len
         

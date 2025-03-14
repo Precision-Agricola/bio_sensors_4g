@@ -1,21 +1,35 @@
-"""MQTT Manager for sensor data transmission"""
+"""MQTT Manager"""
 import socket
 import json
 import time
 from config.secrets import MQTT_CONFIG
-from local_network.wifi import save_to_backup
 
-class MQTTClient:
-    def __init__(self, client_id, server, port=1883, user=None, password=None, keepalive=0):
-        self.client_id = client_id
-        self.server = server
-        self.port = port
-        self.user = user
-        self.password = password
-        self.keepalive = keepalive
-        self.sock = None
-        self.connected = False
+class MQTTManager:
+    def __init__(self):
+        """Initialize MQTT Manager with configuration from secrets."""
+        self.client_id = MQTT_CONFIG.get("client_id", "sensor_device")
+        self.broker = MQTT_CONFIG.get("broker", "192.168.4.1")  # IP del Raspberry Pi Pico W (AP)
+        self.port = MQTT_CONFIG.get("port", 1883)
+        self.topic = MQTT_CONFIG.get("topic", "sensor/readings")
+        self.username = MQTT_CONFIG.get("username", None)
+        self.password = MQTT_CONFIG.get("password", None)
+        self.client = None
         
+    def connect(self):
+        """Connect to MQTT broker."""
+        try:
+            self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client.connect((self.broker, self.port))
+            self._send_connect()
+            if self._check_connack():
+                return True
+            else:
+                self.client.close()
+                return False
+        except Exception as e:
+            print("MQTT connection error:", e)
+            return False
+            
     def _send_connect(self):
         import struct
         
@@ -31,10 +45,10 @@ class MQTTClient:
         payload.extend(self.client_id.encode())
         
         # Add username if set
-        if self.user:
+        if self.username:
             var_header[7] |= 0x80
-            payload.extend(struct.pack("!H", len(self.user)))
-            payload.extend(self.user.encode())
+            payload.extend(struct.pack("!H", len(self.username)))
+            payload.extend(self.username.encode())
         
         # Add password if set
         if self.password:
@@ -63,44 +77,56 @@ class MQTTClient:
         packet.extend(payload)
         
         # Send packet
-        self.sock.write(packet)
+        self.client.send(packet)
     
     def _check_connack(self):
         # Read CONNACK
-        resp = self.sock.read(4)
+        resp = self.client.recv(4)
         if resp and len(resp) == 4 and resp[0] == 0x20 and resp[3] == 0:
-            self.connected = True
             return True
         return False
     
-    def connect(self):
-        import socket
-        
-        # Create socket
-        self.sock = socket.socket()
-        self.sock.connect((self.server, self.port))
-        
-        # Send CONNECT
-        self._send_connect()
-        
-        # Check CONNACK
-        if self._check_connack():
-            return True
-        else:
-            self.sock.close()
-            return False
-    
     def disconnect(self):
-        if self.connected:
+        if self.client:
             # DISCONNECT packet
-            self.sock.write(b"\xe0\0")
-            self.sock.close()
-            self.connected = False
+            self.client.send(b"\xe0\0")
+            self.client.close()
+            self.client = None
     
-    def publish(self, topic, msg):
-        if not self.connected:
-            return False
+    def publish(self, data):
+        """Publish sensor data to MQTT broker.
         
+        Args:
+            data (dict): Data to publish
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Convert payload to JSON
+            json_payload = json.dumps(data)
+            
+            # Connect if not connected
+            if not self.client:
+                if not self.connect():
+                    self._save_to_backup(data)
+                    return False
+            
+            # Publish message
+            result = self._publish_message(self.topic, json_payload)
+            
+            # Disconnect to save resources
+            self.disconnect()
+            
+            return result
+        except Exception as e:
+            print("MQTT publish error:", e)
+            
+            # Save to backup if publishing fails
+            self._save_to_backup(data)
+            return False
+            
+    def _publish_message(self, topic, msg):
         import struct
         
         # Fixed header
@@ -131,64 +157,26 @@ class MQTTClient:
         packet.extend(payload)
         
         # Send packet
-        self.sock.write(packet)
+        self.client.send(packet)
         return True
-
-class MQTTManager:
-    def __init__(self):
-        """Initialize MQTT Manager with configuration from secrets."""
-        self.client_id = MQTT_CONFIG.get("client_id", "sensor_device")
-        self.broker = MQTT_CONFIG.get("broker", "192.168.4.1")
-        self.port = MQTT_CONFIG.get("port", 1883)
-        self.topic = MQTT_CONFIG.get("topic", "sensor/readings")
-        self.username = MQTT_CONFIG.get("username", None)
-        self.password = MQTT_CONFIG.get("password", None)
-        self.client = None
         
-    def connect(self):
-        """Connect to MQTT broker."""
+    def _save_to_backup(self, data):
+        """Save data to backup file if MQTT fails."""
         try:
-            self.client = MQTTClient(
-                self.client_id, 
-                self.broker, 
-                self.port,
-                self.username,
-                self.password
-            )
-            return self.client.connect()
+            import os
+            # Ensure backup directory exists
+            try:
+                os.mkdir("/data/backup")
+            except:
+                pass
+                
+            # Create backup filename with timestamp
+            filename = f"/data/backup/mqtt_{int(time.time())}.json"
+            
+            # Write data to file
+            with open(filename, "w") as f:
+                json.dump(data, f)
+                
+            print(f"Data saved to backup: {filename}")
         except Exception as e:
-            print("MQTT connection error:", e)
-            return False
-            
-    def publish(self, payload):
-        """Publish sensor data to MQTT broker.
-        
-        Args:
-            payload (dict): Data to publish
-            
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            # Convert payload to JSON
-            json_payload = json.dumps(payload)
-            
-            # Connect if not connected
-            if not self.client or not self.client.connected:
-                if not self.connect():
-                    save_to_backup(json_payload)
-                    return False
-            
-            # Publish message
-            result = self.client.publish(self.topic, json_payload)
-            
-            # Disconnect to save resources
-            self.client.disconnect()
-            
-            return result
-        except Exception as e:
-            print("MQTT publish error:", e)
-            
-            # Save to backup if publishing fails
-            save_to_backup(json_payload)
-            return False
+            print(f"Error saving backup: {e}")

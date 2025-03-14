@@ -6,6 +6,9 @@ __pycache__/
 # Credentials
 src/config/secrets.py
 
+# Payload data
+src/data/**
+
 # C extensions
 *.so
 
