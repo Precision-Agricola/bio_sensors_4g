@@ -8,12 +8,17 @@ Modified: March 2025 - Sistema de timer unificado
 """
 import time
 from routines.aerator_3hr import turn_on_aerators
+from routines.sensor_routine import SensorRoutine
 import config.runtime as config
 
 def main():
     """Main application entry point"""
     mode = config.get_mode()
     time_factor = config.get_speed()
+
+    sensor_routine = SensorRoutine()
+    sensor_routine.start()
+
     print(f"BIO-IOT v1.2 - Mode: {mode}")
 
     # Mode operation selector
