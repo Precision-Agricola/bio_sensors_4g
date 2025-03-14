@@ -135,13 +135,24 @@ def handle_mqtt_packet(payload):
         print(f"Dispositivo: {device_id}")
         print(f"Timestamp: {data.get('timestamp', 'N/A')}")
         
-        # Mostrar datos de sensores
+        # Mostrar datos de sensores - comprobar si usa "sensors" o "data"
+        sensor_data = None
         if "sensors" in data:
+            sensor_data = data["sensors"]
             print("\nDatos de sensores:")
-            for sensor_name, sensor_data in data["sensors"].items():
-                status = sensor_data.get("status", "Desconocido")
-                reading = sensor_data.get("reading", "N/A")
+            for sensor_name, sensor_info in sensor_data.items():
+                status = sensor_info.get("status", "Desconocido")
+                reading = sensor_info.get("reading", "N/A")
                 print(f"  - {sensor_name}: {status}, Valor: {reading}")
+        elif "data" in data:
+            sensor_data = data["data"]
+            print("\nDatos de sensores:")
+            for sensor_name, sensor_value in sensor_data.items():
+                if isinstance(sensor_value, dict):
+                    print(f"  - {sensor_name}: {sensor_value}")
+                else:
+                    print(f"  - {sensor_name}: Valor: {sensor_value}")
+        
         print("=" * 40 + "\n")
         
         # Enviar a AWS IoT Core
