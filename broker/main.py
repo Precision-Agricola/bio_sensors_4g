@@ -32,8 +32,30 @@ aws_success_count = 0
 aws_error_count = 0
 last_device_seen = {}
 
+def _create_publish_packet(topic, payload):
+    import struct
+    cmd = 0x30  # PUBLISH
+    var_header = struct.pack("!H", len(topic)) + topic.encode()
+    
+    remaining_length = len(var_header) + len(payload)
+    rl = bytearray()
+    while True:
+        byte = remaining_length % 128
+        remaining_length = remaining_length // 128
+        if remaining_length > 0:
+            byte |= 0x80
+        rl.append(byte)
+        if remaining_length == 0:
+            break
+    
+    packet = bytearray([cmd])
+    packet.extend(rl)
+    packet.extend(var_header)
+    packet.extend(payload)
+    
+    return packet
 
-# Añadir esto a main.py del broker
+pending_commands = []
 def send_command(device_id, command, params=None):
     if params is None:
         params = {}
@@ -49,26 +71,17 @@ def send_command(device_id, command, params=None):
     if device_id == "all":
         topic = "command/all"
     
-    payload = json.dumps(cmd_data).encode()
+    # Guardar el comando para ser enviado cuando el cliente se conecte
+    pending_commands.append({
+        "topic": topic,
+        "payload": json.dumps(cmd_data),
+        "timestamp": time.time()
+    })
     
-    print(f"Enviando comando a {topic}: {command}")
+    print(f"Comando guardado para {topic}: {command}")
+    print(f"Se enviará cuando el cliente se conecte")
     
-    # Crear un socket temporal para publicar el comando
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect(('127.0.0.1', MQTT_PORT))  # Conectamos al broker localmente
-        
-        # Enviar CONNECT
-        client_id = "master_command"
-        
-        # Simplificar el envío directo
-        _send_mqtt_publish(s, topic, payload)
-        
-        s.close()
-        return True
-    except Exception as e:
-        print(f"Error enviando comando: {e}")
-        return False
+    return True
 
 def _send_mqtt_publish(sock, topic, payload):
     import struct
@@ -303,13 +316,11 @@ def parse_mqtt_packet(packet):
     
     return None, None
 
+# Modificar la función handle_mqtt para enviar comandos pendientes
 def handle_mqtt(client_socket):
-    """Manejar protocolo MQTT básico"""
     try:
         client_socket.settimeout(3)
         packet = client_socket.recv(1024)
-        
-        debug_print("Paquete recibido:", packet)
         
         if not packet or len(packet) < 2:
             return
@@ -317,8 +328,23 @@ def handle_mqtt(client_socket):
         # Verificar CONNECT
         if packet[0] == 0x10:
             debug_print("Recibido CONNECT")
-            client_socket.write(b"\x20\x02\x00\x00")
+            client_socket.send(b"\x20\x02\x00\x00")
             print("Cliente conectado")
+            
+            # Enviar comandos pendientes al cliente
+            for cmd in pending_commands[:]:  # Copiar la lista para iterar
+                if time.time() - cmd["timestamp"] < 3600:  # Solo comandos de menos de 1 hora
+                    try:
+                        # Crear paquete MQTT PUBLISH
+                        import struct
+                        topic = cmd["topic"]
+                        payload = cmd["payload"].encode() if isinstance(cmd["payload"], str) else cmd["payload"]
+                        
+                        cmd_packet = _create_publish_packet(topic, payload)
+                        client_socket.send(cmd_packet)
+                        print(f"Comando enviado a cliente: {cmd['topic']}")
+                    except Exception as e:
+                        print(f"Error enviando comando pendiente: {e}")
             
             # Esperar paquetes PUBLISH
             while True:
