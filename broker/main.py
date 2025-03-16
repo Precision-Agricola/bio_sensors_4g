@@ -6,7 +6,7 @@ Recibe datos de sensores a través del punto de acceso local y los reenvía a AW
 
 from core.wifi import setup_access_point
 from core.mqtt_broker import start_mqtt_broker, handle_client
-from core.utils import print_stats
+from core.utils import print_stats, led
 import time, gc
 
 SSID = "PrecisionAgricola"
@@ -26,7 +26,7 @@ def main():
             broker.settimeout(5)
             try:
                 client, _ = broker.accept()
-                handle_client(client, stats, last_seen)
+                handle_client(client, stats, led)
             except OSError:
                 pass
             if time.time() - stats_timer > 60:
