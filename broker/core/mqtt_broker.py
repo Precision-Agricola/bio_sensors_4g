@@ -26,18 +26,18 @@ def handle_client(client_socket, stats, led):
         client_socket.send(b"\x20\x02\x00\x00")  # CONNACK
         debug_print("Cliente conectado correctamente")
 
-        # Envía comandos pendientes solo una vez al conectarse
+        # Envía comandos pendientes
         for cmd in pending_commands[:]:
             cmd_packet = create_publish_packet(cmd["topic"], cmd["payload"].encode())
             client_socket.send(cmd_packet)
             pending_commands.remove(cmd)
 
-        # Mantiene la conexión activa indefinidamente
+        # Escucha activa con manejo explícito del timeout y desconexión:
         while True:
             try:
                 packet = client_socket.recv(1024)
                 if not packet:
-                    debug_print("Cliente desconectado")
+                    debug_print("Cliente desconectado (recv vacío)")
                     break
 
                 if (packet[0] & 0xF0) == 0x30:  # PUBLISH
@@ -46,14 +46,20 @@ def handle_client(client_socket, stats, led):
                         handle_received_payload(payload, stats, led, publish_to_aws)
 
             except OSError as e:
-                if e.args[0] == errno.ETIMEDOUT:  # Timeout esperado
+                if e.args[0] == errno.ETIMEDOUT:  # tiempo expirado (normal)
                     continue
+                elif e.args[0] in [errno.ECONNRESET, errno.ECONNABORTED, errno.ENOTCONN, errno.EPIPE]:
+                    debug_print(f"Conexión cliente perdida ({e}). Cerrando socket.")
+                    break  # rompe ciclo, cerrará el socket abajo
                 else:
                     debug_print(f"OSError inesperado: {e}")
                     break
+            except Exception as e:
+                debug_print(f"Excepción general inesperada: {e}")
+                break
 
     except Exception as e:
         debug_print(f"Error general del cliente: {e}")
     finally:
         client_socket.close()
-        debug_print("Socket cerrado correctamente")
+        debug_print("Socket cerrado correctamente (finally)")

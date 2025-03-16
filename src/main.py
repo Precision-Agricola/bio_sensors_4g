@@ -17,9 +17,7 @@ def main():
     time_factor = config.get_speed()
     print(f"BIO-IOT v1.2 - Mode: {mode}")
     
-    sensor_routine = SensorRoutine()
-   #sensor_routine.start()
-    
+   
     if mode == "PROGRAM MODE":
         print("Program mode active - Development interfaces enabled")
         print("No automatic routines will start")
@@ -28,9 +26,11 @@ def main():
     elif mode == "DEMO MODE":
         from tests.hardware_test import run_hardware_tests
         print(f"Demo mode active - Time acceleration: {time_factor}x")
+        sensor_routine = SensorRoutine()
+        sensor_routine.start()
         print(f"3 hour cycles compressed to {3*60:.1f} minutes")
     #   run_hardware_tests()
-        #turn_on_aerators()
+        turn_on_aerators()
         while True:
             sensor_routine.check_commands()
             time.sleep(1)
@@ -38,6 +38,8 @@ def main():
     elif mode == "WORKING MODE":
         print("Working mode active - Starting normal operation")
         turn_on_aerators()
+        sensor_routine = SensorRoutine()
+        sensor_routine.start()
         while True:
             sensor_routine.check_commands()
             time.sleep(5)

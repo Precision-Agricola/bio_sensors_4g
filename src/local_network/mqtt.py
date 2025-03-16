@@ -70,11 +70,17 @@ class MQTTClient:
         if resp and len(resp) == 4 and resp[0] == 0x20 and resp[3] == 0:
             return True
         return False
-    
+        
     def disconnect(self):
         if self.connected:
-            self.sock.send(b"\xe0\0")
-            self.sock.close()
+            try:
+                self.sock.send(b"\xe0\0")
+            except:
+                pass
+            try:
+                self.sock.close()
+            except:
+                pass
             self.connected = False
     
     def subscribe(self, topic):
@@ -146,52 +152,48 @@ class MQTTClient:
         except Exception as e:
             print("Publish error:", e)
             return False
-            
+
     def check_msg(self, callback=None):
         if not self.connected:
             return None
-            
         try:
             self.sock.settimeout(0.1)
             packet = self.sock.recv(1024)
-            
+
             if not packet or len(packet) < 2:
                 return None
-                
             cmd = packet[0] & 0xF0
-            
+
             if cmd == 0x30:
                 if len(packet) < 4:
                     return None
-                    
                 remaining_length = packet[1]
                 idx = 2
-                
                 if len(packet) <= idx + 2:
                     return None
-                    
                 topic_len = (packet[idx] << 8) | packet[idx + 1]
                 idx += 2
-                
                 if len(packet) < idx + topic_len:
                     return None
-                    
                 topic = packet[idx:idx + topic_len]
                 topic_str = topic.decode('utf-8', 'ignore')
                 idx += topic_len
-                
                 if idx < len(packet):
                     payload = packet[idx:]
-                    
                     if callback:
                         callback(topic_str, payload)
-                    
                     return (topic_str, payload)
-            
+            return None
+        except OSError as e:
+            if e.args[0] not in [110, 11]:
+                print(f"OSError crítico en check_msg: {e}. Desconectando MQTT...")
+                self.connected = False
+                self.disconnect()
             return None
         except Exception as e:
-            if not isinstance(e, OSError) or e.args[0] != 110:  # ETIMEDOUT
-                print("Check msg error:", e)
+            print(f"Excepción inesperada en check_msg: {e}. Desconectando MQTT...")
+            self.connected = False
+            self.disconnect()
             return None
 
 class MQTTManager:
@@ -221,23 +223,31 @@ class MQTTManager:
         except Exception as e:
             print("MQTT connection error:", e)
             return False
-            
+
     def publish(self, data):
         try:
-            if isinstance(data, dict) and "device_id" not in data:
-                data["device_id"] = self.client_id
-            
+            if isinstance(data, dict):
+                data.setdefault("device_id", self.client_id)
+
             json_payload = json.dumps(data)
-            
+
             if not self.client or not self.client.connected:
+                print("MQTT desconectado, reconectando...")
                 if not self.connect():
+                    print("Reconexión MQTT fallida")
                     return False
-            
-            return self.client.publish(self.topic, json_payload)
+
+            success = self.client.publish(self.topic, json_payload)
+            if not success:
+                raise Exception("Fallo en envío del mensaje MQTT")
+
+            return True
+
         except Exception as e:
-            print("MQTT publish error:", e)
+            print(f"MQTT publish error: {e}, desconectando para reconectar después")
+            self.disconnect()
             return False
-    
+
     def register_command_handler(self, command, handler):
         if callable(handler):
             self.command_handlers[command] = handler
@@ -255,10 +265,14 @@ class MQTTManager:
     
     def check_commands(self):
         if not self.client or not self.client.connected:
-            return False
-            
+            print("Reconectando MQTT desde check_commands()...")
+            if not self.connect():
+                print("Reconexión MQTT fallida en check_commands()")
+                return False
+            self.start_command_listener()
+
         return self.client.check_msg(self._handle_message) is not None
-    
+
     def _handle_message(self, topic, payload):
         try:
             message = payload.decode('utf-8', 'ignore')
