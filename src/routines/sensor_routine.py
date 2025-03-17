@@ -1,34 +1,32 @@
 # routines/sensor_routine.py
 from readings.scheduler import SensorScheduler
-from local_network.mqtt import MQTTManager
 from local_network.wifi import connect_wifi
+from local_network.http_client import HTTPClient
 import ujson as json
 import gc
 import os
 
 class SensorRoutine:
-    def __init__(self, data_folder="data"):
+    def __init__(self, data_folder="data", device_id = 'esp32-01'):
         self.scheduler = SensorScheduler(settling_time=15)
         self.data_folder = data_folder
-        self.mqtt = MQTTManager()
-        
+        self.http = HTTPClient()
+        self.device_id= device_id
         try:
             os.mkdir(data_folder)
         except OSError:
             pass
         
         self.scheduler.add_callback(self._save_data_callback)
-        self.mqtt.register_command_handler("READ_NOW", self._handle_read_now)
         
     def start(self):
-        print("Iniciando rutina de lecturas de sensores...")
+        print("Starting sensor reading routine")
         success = self.scheduler.start()
-        
+
         if success:
-            if connect_wifi():
-                self.mqtt.start_command_listener()
-                print("Escucha de comandos MQTT iniciada")
-        
+            connect_wifi()
+            print('HTTP communication ready')
+
         return success
     
     def stop(self):
@@ -54,11 +52,11 @@ class SensorRoutine:
             print(f"Datos guardados en {filename}")
             
             if connect_wifi():
-                print("WiFi conectado, enviando datos por MQTT")
-                if self.mqtt.publish(readings):
-                    print("Datos enviados por MQTT correctamente")
+                print("WiFi connected, sending data via HTTP")
+                if self.http.send_sensor_data(readings): 
+                    print("Data sent via HTTP successfully")
                 else:
-                    print("Error al enviar datos por MQTT")
+                    print("Failed to send via HTTP")
             
             gc.collect()
             
@@ -71,5 +69,13 @@ class SensorRoutine:
     
     def check_commands(self):
         if connect_wifi():
-            return self.mqtt.check_commands()
+            commands = self.http.check_commands(self.device_id)
+            for cmd in commands:
+                self._handle_command(cmd)
+            return bool(commands)
         return False
+    
+    def _handle_command(self, command):
+        if command == 'READ_NOW':
+            print("HTTP command received: READ_NOW")
+            self.read_now()

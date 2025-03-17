@@ -50,3 +50,9 @@ def save_to_backup(data):
         print(f"Data saved to backup: {filename}")
     except Exception as e:
         print(f"Error saving backup: {e}")
+
+def get_ip_address():
+    wlan = network.WLAN(network.STA_IF)
+    if wlan.isconnected():
+        return wlan.ifconfig()[0]
+    return None
