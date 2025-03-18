@@ -11,6 +11,11 @@ I2C_SDA_PIN = 21
 AERATOR_PIN_A = 12
 AERATOR_PIN_B = 27
 
+WIFI_CONFIG = {
+  "server_ip": "192.168.4.1",
+  "sever_port": 8080
+}
+
 def load_device_config(config_file='config/device_config.json'):
     """Loads device configuration from a JSON file.
         Args:
