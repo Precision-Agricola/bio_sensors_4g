@@ -1,13 +1,11 @@
 """WiFi Manager"""
-
 # src/local_network/wifi.py
 import network
 import time
-import json
 import os
 
 def connect_wifi(ssid="PrecisionAgricola", password="ag2025pass", timeout=10):
-    """Connect to WiFi network."""
+    """Connect to WiFi network in station mode."""
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     
@@ -36,12 +34,17 @@ def save_to_backup(data):
     try:
         # Ensure backup directory exists
         try:
-            os.mkdir("/data/backup")
-        except:
+            os.mkdir("data")
+        except OSError:
+            pass
+            
+        try:
+            os.mkdir("data/backup")
+        except OSError:
             pass
             
         # Create backup filename with timestamp
-        filename = f"/data/backup/mqtt_{int(time.time())}.json"
+        filename = f"data/backup/data_{int(time.time())}.json"
         
         # Write data to file
         with open(filename, "w") as f:

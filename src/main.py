@@ -6,7 +6,7 @@ Investigation and Development Department
 Feb 2025
 Modified: March 2025 - Sistema de timer unificado
 """
-# main.py
+# src/main.py
 import time
 from routines.aerator_3hr import turn_on_aerators
 from routines.sensor_routine import SensorRoutine
@@ -18,7 +18,7 @@ def main():
     print(f"BIO-IOT v1.2 - Mode: {mode}")
     
     sensor_routine = SensorRoutine()
-   #sensor_routine.start()
+    sensor_routine.start()
     
     if mode == "PROGRAM MODE":
         print("Program mode active - Development interfaces enabled")
@@ -26,12 +26,11 @@ def main():
         print("Use REPL to manually control system")
            
     elif mode == "DEMO MODE":
-        from tests.hardware_test import run_hardware_tests
         print(f"Demo mode active - Time acceleration: {time_factor}x")
         print(f"3 hour cycles compressed to {3*60:.1f} minutes")
-    #   run_hardware_tests()
-        #turn_on_aerators()
+        turn_on_aerators()
         while True:
+            # We're still checking for commands, even though the method currently just returns False
             sensor_routine.check_commands()
             time.sleep(1)
             
@@ -49,3 +48,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

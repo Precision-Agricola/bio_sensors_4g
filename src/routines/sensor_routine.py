@@ -1,6 +1,6 @@
-# routines/sensor_routine.py
+# src/routines/sensor_routine.py
 from readings.scheduler import SensorScheduler
-from local_network.mqtt import MQTTManager
+from local_network.http_client import HTTPClient  # Only HTTP client import
 from local_network.wifi import connect_wifi
 import ujson as json
 import gc
@@ -10,7 +10,7 @@ class SensorRoutine:
     def __init__(self, data_folder="data"):
         self.scheduler = SensorScheduler(settling_time=15)
         self.data_folder = data_folder
-        self.mqtt = MQTTManager()
+        self.http_client = HTTPClient()  # Initialize HTTP client
         
         try:
             os.mkdir(data_folder)
@@ -18,17 +18,10 @@ class SensorRoutine:
             pass
         
         self.scheduler.add_callback(self._save_data_callback)
-        self.mqtt.register_command_handler("READ_NOW", self._handle_read_now)
         
     def start(self):
         print("Iniciando rutina de lecturas de sensores...")
         success = self.scheduler.start()
-        
-        if success:
-            if connect_wifi():
-                self.mqtt.start_command_listener()
-                print("Escucha de comandos MQTT iniciada")
-        
         return success
     
     def stop(self):
@@ -53,23 +46,29 @@ class SensorRoutine:
             
             print(f"Datos guardados en {filename}")
             
-            if connect_wifi():
-                print("WiFi conectado, enviando datos por MQTT")
-                if self.mqtt.publish(readings):
-                    print("Datos enviados por MQTT correctamente")
+            # Send data via HTTP
+            try:
+                if self.http_client.send_data(readings):
+                    print("Datos enviados por HTTP correctamente")
                 else:
-                    print("Error al enviar datos por MQTT")
+                    print("Error al enviar datos por HTTP")
+            except Exception as e:
+                print(f"Error HTTP: {e}")
             
             gc.collect()
             
         except Exception as e:
             print(f"Error al guardar datos: {e}")
     
-    def _handle_read_now(self, params):
-        print("Comando READ_NOW recibido, realizando lectura inmediata")
-        return self.read_now()
-    
     def check_commands(self):
-        if connect_wifi():
-            return self.mqtt.check_commands()
-        return False
+        """
+        Check for commands from the server
+        This can be expanded in the future to poll HTTP endpoints for commands
+        """
+        try:
+            if not connect_wifi():
+                return False
+            return False
+        except Exception as e:
+            print(f"Error checking commands: {e}")
+            return False
