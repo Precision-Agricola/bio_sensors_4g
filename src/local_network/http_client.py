@@ -1,13 +1,12 @@
 """Http client using urequest to interact with the raspberry pi pico http server"""
-
-
 # src/local_network/http_client.py
+
 import urequests
 import json
 import time
 import os
 from local_network.wifi import connect_wifi
-
+from config.secrets import DEVICE_ID
 SERVER_IP = "192.168.4.1"
 SERVER_PORT = 80 
 
@@ -39,8 +38,10 @@ class HTTPClient:
             return False
             
         if isinstance(data, dict) and "device_id" not in data:
-            from config.secrets import DEVICE_SERIAL
-            data["device_id"] = DEVICE_SERIAL.get("device_id", "unknown")
+            if DEVICE_ID:
+                data["device_id"] = DEVICE_ID
+            else:
+                data["device_id"] = "unknown"
         
         if isinstance(data, dict) and "timestamp" not in data:
             data["timestamp"] = time.time()
