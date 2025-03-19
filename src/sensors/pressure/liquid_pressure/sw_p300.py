@@ -22,18 +22,18 @@ class SWP300Sensor(Sensor):
         # Inicializar UART y pin DE/RE exactamente como en el código de depuración
         self.uart = UART(2, baudrate=9600, tx=1, rx=3)
         self.de_re = Pin(22, Pin.OUT)
-        self.de_re.off()  # Iniciar en modo recepción
+        self.de_re.off() 
         
         self._initialized = True
         self._log_debug(f"Hardware inicializado para {self.name}")
-    
+
     def read(self):
         if not getattr(self, '_initialized', False):
             self._init_hardware()
         result = self._read_implementation()
         self._log_debug(f"Metodo read() retornado: {result}")
-        return self._read_implementation()
-    
+        return result 
+        
     def _read_implementation(self):
         try:
             self._log_debug(f"Iniciando lectura de {self.name}")
