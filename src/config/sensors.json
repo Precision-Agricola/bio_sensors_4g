@@ -23,17 +23,6 @@
       "vin": "3.3",
       "bus_num": 0,
       "address": "0x77"
-    },
-    {
-      "name": "LiquidPressure",
-      "model": "SW-P300",
-      "protocol": "RS485",
-      "vin": 12,
-      "uart_id": 2,
-      "commands": {
-        "pressure": "010304040A0002E539",
-        "temperature": "010304040C00020538"
-      }
     }
   ]
   
