@@ -23,6 +23,18 @@
       "vin": "3.3",
       "bus_num": 0,
       "address": "0x77"
+    },
+    {
+      "name": "SensorPresion",
+      "model": "SW-P300",
+      "protocol": "RS485",
+      "vin": 5,
+      "uart_id": 2,
+      "commands": {
+        "pressure": "010304000002E539",
+        "temperature": "01030400020538",
+        "ambient_temperature": "0103040C00020538"
+      }
     }
   ]
   
