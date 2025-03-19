@@ -54,21 +54,110 @@ class SensorReader:
         """
         settling = custom_settling_time if custom_settling_time is not None else self.settling_time
         readings = {}
-        self.sensor_relay.activate_a()
+        # Activar el relé apropiado
+        if relay == 'A':
+            self.sensor_relay.activate_a()
+        elif relay == 'B':
+            self.sensor_relay.activate_b()
+        
         time.sleep(settling)
         successful_sensors = []
+        
+        # Registrar inicio de lectura
+        try:
+            with open('sensor_debug.txt', 'a') as f:
+                f.write(f"\n[{time.time()}] Iniciando lectura de sensores (relay: {relay})\n")
+        except:
+            pass
+        
+        # Primero verificar si hay sensores RS485 para un seguimiento especial
+        rs485_sensors = []
+        for sensor in self.sensors:
+            if getattr(sensor, 'protocol', '').upper() == 'RS485':
+                rs485_sensors.append(sensor)
+        
+        # Registrar cuántos sensores RS485 encontramos
+        try:
+            with open('sensor_debug.txt', 'a') as f:
+                f.write(f"[{time.time()}] Sensores RS485 encontrados: {len(rs485_sensors)}\n")
+                for s in rs485_sensors:
+                    f.write(f"  - {s.name} (modelo: {s.model})\n")
+        except:
+            pass
+        
+        # Leer todos los sensores
         for sensor in self.sensors:
             try:
+                # Registrar inicio de lectura del sensor
+                try:
+                    with open('sensor_debug.txt', 'a') as f:
+                        f.write(f"[{time.time()}] Intentando leer sensor: {sensor.name}\n")
+                except:
+                    pass
+                
                 if not getattr(sensor, '_initialized', True):
-                    print(f"Sensor {sensor.name} no está inicializado, omitiendo")
+                    try:
+                        with open('sensor_debug.txt', 'a') as f:
+                            f.write(f"[{time.time()}] Sensor {sensor.name} no inicializado, omitiendo\n")
+                    except:
+                        pass
                     continue
+                
+                # Seguimiento especial para sensores RS485
+                is_rs485 = getattr(sensor, 'protocol', '').upper() == 'RS485'
+                
+                # Leer el sensor
                 reading = sensor.read()
+                
+                # Registrar resultado de lectura
                 if reading is not None:
                     readings[sensor.name] = reading
                     successful_sensors.append(sensor.name)
+                    
+                    # Registro especial para RS485
+                    if is_rs485:
+                        try:
+                            with open('sensor_debug.txt', 'a') as f:
+                                f.write(f"[{time.time()}] ✅ Lectura RS485 exitosa: {sensor.name}\n")
+                                f.write(f"    Datos: {reading}\n")
+                                
+                                # Verificar condiciones específicas de temperatura
+                                if 'temperature' in reading:
+                                    temp = reading['temperature']
+                                    if 18 <= temp <= 30:
+                                        f.write(f"    ESTADO: Temperatura normal ({temp}°C)\n")
+                                    else:
+                                        f.write(f"    ALERTA: Temperatura fuera de rango ({temp}°C)\n")
+                        except:
+                            pass
+                else:
+                    # Registro especial para fallo de RS485
+                    if is_rs485:
+                        try:
+                            with open('sensor_debug.txt', 'a') as f:
+                                f.write(f"[{time.time()}] ❌ Fallo en lectura RS485: {sensor.name}\n")
+                        except:
+                            pass
+                            
             except Exception as e:
-                print(f"Error al leer sensor {sensor.name}: {str(e)}")
+                # Registrar excepción
+                try:
+                    with open('sensor_debug.txt', 'a') as f:
+                        f.write(f"[{time.time()}] ❌ Error leyendo sensor {sensor.name}: {str(e)}\n")
+                except:
+                    pass
+                    
+        # Desactivar todos los relés
         self.sensor_relay.deactivate_all()
+        
+        # Registrar resumen
+        try:
+            with open('sensor_debug.txt', 'a') as f:
+                f.write(f"[{time.time()}] Finalizada lectura de sensores\n")
+                f.write(f"  - Sensores exitosos: {len(successful_sensors)} de {len(self.sensors)}\n")
+                f.write(f"  - Nombres: {', '.join(successful_sensors)}\n\n")
+        except:
+            pass
         
         self.last_readings = {
             "timestamp": time.time(),

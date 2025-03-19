@@ -9,7 +9,6 @@ Modified: March 2025 - Sistema de timer unificado
 # src/main.py
 import time
 from routines.aerator_3hr import turn_on_aerators
-from routines.sensor_routine import SensorRoutine
 import config.runtime as config
 
 def main():
@@ -17,15 +16,16 @@ def main():
     time_factor = config.get_speed()
     print(f"BIO-IOT v1.2 - Mode: {mode}")
     
-    sensor_routine = SensorRoutine()
-    sensor_routine.start()
-    
+   
     if mode == "PROGRAM MODE":
         print("Program mode active - Development interfaces enabled")
         print("No automatic routines will start")
         print("Use REPL to manually control system")
            
     elif mode == "DEMO MODE":
+        from routines.sensor_routine import SensorRoutine
+        sensor_routine = SensorRoutine()
+        sensor_routine.start()
         print(f"Demo mode active - Time acceleration: {time_factor}x")
         print(f"3 hour cycles compressed to {3*60:.1f} minutes")
         turn_on_aerators()
@@ -35,6 +35,10 @@ def main():
             time.sleep(1)
             
     elif mode == "WORKING MODE":
+        from routines.sensor_routine import SensorRoutine
+        sensor_routine = SensorRoutine()
+        sensor_routine.start()
+
         print("Working mode active - Starting normal operation")
         turn_on_aerators()
         while True:
