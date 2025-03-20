@@ -1,118 +1,61 @@
-"""Liquid Pressure Sensor SW-P300 using RS485/Modbus"""
-from sensors.base import Sensor, register_sensor
-from machine import Pin, UART
+"""SW_P300 Liquid Pressure Sensor using RS485"""
 import time
-import struct
+from protocols.rs485 import init_rs485
 
-@register_sensor("SW-P300", "RS485")
-class SWP300Sensor(Sensor):
-    def __init__(self, name, model, protocol, vin, **kwargs):
-        if 'signal' not in kwargs:
-            kwargs['signal'] = 0
-        
-        # Usar exactamente los mismos comandos que funcionaron en el código de depuración
-        self.cmd_pressure = b'\x01\x03\x04\x0a\x00\x02\xE5\x39'
-        self.cmd_temperature = b'\x01\x03\x04\x0c\x00\x02\x05\x38'
-        
-        super().__init__(name, model, protocol, vin, **kwargs)
+class SW_P300:
+    """Simple RS485-based pressure sensor implementation"""
     
-    def _init_hardware(self):
-        super()._init_hardware()
+    def __init__(self, name="SWP300"):
+        """Initialize the pressure sensor"""
+        self.name = name
+        self._initialized = False
+        self.device = None
+        self.log_file = "sensor_log.txt"
         
-        # Inicializar UART y pin DE/RE exactamente como en el código de depuración
-        self.uart = UART(2, baudrate=9600, tx=1, rx=3)
-        self.de_re = Pin(22, Pin.OUT)
-        self.de_re.off() 
+        # Comandos predefinidos que ya funcionan
+        self.commands = [
+            b'\x01\x03\x04\x0a\x00\x02\xE5\x39',
+            b'\x01\x03\x04\x08\x00\x02\x44\xF9',
+            b'\x01\x03\x04\x0c\x00\x02\x05\x38'
+        ]
         
-        self._initialized = True
-        self._log_debug(f"Hardware inicializado para {self.name}")
-
+        try:
+            # Usar los mismos pines y configuración que ya funcionan
+            self.device = init_rs485(uart_id=2, baudrate=9600, tx_pin=1, rx_pin=3, de_re_pin=22)
+            self._initialized = True
+            self._log("Sensor inicializado")
+        except Exception as e:
+            self._log(f"ERROR: Inicialización fallida: {str(e)}")
+    
     def read(self):
-        if not getattr(self, '_initialized', False):
-            self._init_hardware()
-        result = self._read_implementation()
-        self._log_debug(f"Metodo read() retornado: {result}")
-        return result 
-        
-    def _read_implementation(self):
-        try:
-            self._log_debug(f"Iniciando lectura de {self.name}")
-            
-            # Leer presión
-            self._log_debug("Enviando comando de presión")
-            pressure_response = self._send_rs485(self.cmd_pressure)
-            pressure_value = None
-            
-            if pressure_response:
-                hex_response = ' '.join([f'{b:02X}' for b in pressure_response])
-                self._log_debug(f"Respuesta presión (hex): {hex_response}")
-                pressure_value = self._decode_modbus_response(pressure_response)
-                self._log_debug(f"Presión decodificada: {pressure_value}")
-            else:
-                self._log_debug("No se recibió respuesta de presión")
-            
-            # Esperar entre comandos
-            time.sleep(2)
-            
-            # Leer temperatura
-            self._log_debug("Enviando comando de temperatura")
-            temp_response = self._send_rs485(self.cmd_temperature)
-            temp_value = None
-            
-            if temp_response:
-                hex_response = ' '.join([f'{b:02X}' for b in temp_response])
-                self._log_debug(f"Respuesta temperatura (hex): {hex_response}")
-                temp_value = self._decode_modbus_response(temp_response)
-                self._log_debug(f"Temperatura decodificada: {temp_value}")
-            else:
-                self._log_debug("No se recibió respuesta de temperatura")
-            
-            # Resultados
-            result = {}
-            if pressure_value is not None:
-                result["pressure"] = pressure_value
-            if temp_value is not None:
-                result["temperature"] = temp_value
-            
-            if not result:
-                return None
-            
-            self._log_debug(f"Lectura exitosa: {result}")
-            return result
-            
-        except Exception as e:
-            self._log_debug(f"Error: {str(e)}")
+        """Read all sensor values and return them as a dictionary"""
+        if not self._initialized or not self.device:
             return None
-    
-    def _send_rs485(self, data):
-        """Envía comando por RS485 y recibe respuesta"""
-        self.de_re.on()  # Modo transmisión
-        self.uart.write(data)
-        time.sleep_ms(10)  # Esperar transmisión
-        self.de_re.off()  # Modo recepción
-        time.sleep_ms(500)  # Esperar respuesta
-        return self.uart.read()
-    
-    def _decode_modbus_response(self, response):
-        """Decodifica respuesta Modbus a float"""
-        if not response or len(response) < 7:
-            return None
+            
+        readings = {}
+        all_readings_ok = True
         
-        # Extraer bytes del valor float (posiciones 3-6)
-        float_bytes = response[3:7]
+        for i, cmd in enumerate(self.commands):
+            try:
+                resp = self.device.send_command(cmd)
+                if resp:
+                    val = self.device.ieee754_to_float(resp[3:7])
+                    param_name = f"param_{i+1}"
+                    readings[param_name] = val
+                    self._log(f"OK: {param_name}={val}")
+                else:
+                    all_readings_ok = False
+                    self._log(f"ERROR: No response for CMD:{cmd.hex()}")
+            except Exception as e:
+                all_readings_ok = False
+                self._log(f"ERROR: Exception reading sensor: {str(e)}")
         
-        try:
-            # Convertir a float IEEE-754
-            float_value = struct.unpack('>f', float_bytes)[0]
-            return float_value
-        except Exception as e:
-            self._log_debug(f"Error decodificando float: {e}")
-            return None
+        return readings if readings else None
     
-    def _log_debug(self, message):
-        """Registra mensaje en archivo de log"""
+    def _log(self, message):
+        """Log message to file without using print"""
         try:
-            with open("rs485_simple_debug.txt", "a") as f:
-                f.write(f"[{time.time()}] {message}\n")
+            with open(self.log_file, "a") as f:
+                f.write(f"{time.time()} {message}\n")
         except:
-            pass
+            pass  # Silent fail if logging fails
