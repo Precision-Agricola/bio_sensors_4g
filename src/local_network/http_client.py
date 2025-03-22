@@ -32,10 +32,14 @@ class HTTPClient:
         return connect_wifi()
         
     def send_data(self, data, timeout=5):
-        """Send sensor data to the broker via HTTP POST"""
+        """Send sensor data to the broker via HTTP POST with enhanced error handling"""
         if not self.connect():
-            self._save_backup(data)
-            return False
+            print("Primer intento de conexión fallido, intentando reconexión forzada...")
+            import local_network.wifi as wifi
+            if not wifi.connect_wifi(force_reconnect=True, timeout=15):
+                print("Reconexión forzada fallida, guardando en backup...")
+                self._save_backup(data)
+                return False
             
         if isinstance(data, dict) and "device_id" not in data:
             if DEVICE_ID:

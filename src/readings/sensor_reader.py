@@ -8,7 +8,7 @@ from system.control.relays import SensorRelay
 import sensors.amonia.sen0567
 import sensors.hydrogen_sulfide.sen0568
 import sensors.pressure.bmp3901
-from sensors.pressure.liquid_pressure.sw_p300 import SW_P300
+#from sensors.pressure.liquid_pressure.sw_p300 import SW_P300
 
 class SensorReader:
     def __init__(self, config_path="config/sensors.json", settling_time=30):
@@ -18,7 +18,7 @@ class SensorReader:
         self.settling_time = settling_time
         self.last_readings = {}
         self.load_sensors()
-        self.liquid_pressure_sensor = SW_P300()
+#        self.liquid_pressure_sensor = SW_P300()
 
     def load_sensors(self):
         """Carga los sensores desde el archivo de configuración"""
@@ -70,7 +70,8 @@ class SensorReader:
             except Exception as e:
                 print(f"Error al leer sensor {sensor.name}: {str(e)}")
         self.sensor_relay.deactivate_all()
-    # Leer sensor de presión RS485 si existe
+
+        """
         if hasattr(self, 'liquid_pressure_sensor'):
             try:
                 pressure_readings = self.liquid_pressure_sensor.read()
@@ -80,7 +81,7 @@ class SensorReader:
             except Exception as e:
                 with open("sensor_log.txt", "a") as f:
                     f.write(f"{time.time()} ERROR: Error al leer sensor de presión: {str(e)}\n")
-        
+        """
         self.last_readings = {
             "timestamp": time.time(),
             "data": readings
