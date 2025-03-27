@@ -21,11 +21,11 @@ async def ws_client():
                 if msg is None:
                     raise Exception("Connection lost (received None)")
                 print("Received:", msg)
-                if msg.strip() == "HEARTBEAT":
+                if msg.strip() == "PING":
                     ws.send("PONG")
                     print("Sent: PONG")
                 # Process other messages as needed
-                await asyncio.sleep(5)  # yield control to the scheduler
+                await asyncio.sleep(15)  # yield control to the scheduler
         except Exception as e:
             print("Error:", e, "- reconnecting in 3 seconds...")
             try:

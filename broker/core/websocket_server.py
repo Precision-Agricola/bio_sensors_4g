@@ -26,7 +26,7 @@ async def index(request):
             const socket = new WebSocket('ws://' + location.host + '/ws');
             socket.onmessage = ev => {
               console.log('Server:', ev.data);
-              if(ev.data === 'HEARTBEAT') {
+              if(ev.data === 'PING') {
                 socket.send('PONG');
               }
             };
@@ -54,7 +54,7 @@ async def ws_handler(request, ws):
 
     while True:
         try:
-            await ws.send("HEARTBEAT")
+            await ws.send("PING")
             try:
                 data = await asyncio.wait_for(ws.receive(), timeout=heartbeat_timeout)
             except asyncio.TimeoutError:
