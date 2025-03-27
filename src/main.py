@@ -24,7 +24,7 @@ def main():
     elif mode == "DEMO MODE":
         # Import sensor routine and connection manager
         from routines.sensor_routine import SensorRoutine
-        #from utils.connection_manager import ConnectionManager
+        from utils.connection_manager import ConnectionManager
         from local_network.wifi import connect_wifi
 
         if not connect_wifi():
@@ -33,6 +33,7 @@ def main():
 
         sensor_routine = SensorRoutine()
         sensor_routine.start()
+        turn_on_aerators()
 
     elif mode == "WORKING MODE":
         from routines.sensor_routine import SensorRoutine

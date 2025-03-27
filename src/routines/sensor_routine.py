@@ -1,14 +1,15 @@
-from readings.scheduler import SensorScheduler
 import ujson as json
 import gc
 import os
-from local_network.ws_client import connect_ws
+import urequests
+from readings.scheduler import SensorScheduler
+from config.secrets import DEVICE_ID
 
 class SensorRoutine:
-    def __init__(self, data_folder="data"):
+    def __init__(self, data_folder="data", device_id = DEVICE_ID):
         self.scheduler = SensorScheduler(settling_time=15)
         self.data_folder = data_folder
-        
+        self.device_id = DEVICE_ID 
         try:
             os.mkdir(data_folder)
         except OSError:
@@ -28,18 +29,33 @@ class SensorRoutine:
         print("Performing immediate sensor reading...")
         return self.scheduler.read_now()
     
-    def _send_via_websocket(self, readings):
+    def _send_via_http(self, readings):
+        """
+        Send sensor readings to the local server endpoint that posts to AWS IoT Core.
+        The server endpoint is expected to be:
+            POST http://192.168.4.1/sensors/data
+        """
         try:
-            ws = connect_ws("ws://192.168.4.1/ws")
-            payload = json.dumps(readings)
-            ws.send(payload)
-            ws.close()
-            print("Data sent via WebSocket successfully")
-            return True
+            url = "http://192.168.4.1/sensors/data"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "device_id": self.device_id,
+                "timestamp": readings.get("timestamp", 0),
+                "sensors": readings.get("data", readings.get("sensors", {}))
+            }
+            response = urequests.post(url, json=payload, headers=headers)
+            if response.status_code == 200:
+                print("Data sent via HTTP successfully")
+                response.close()
+                return True
+            else:
+                print("HTTP POST failed with status:", response.status_code)
+                response.close()
+                return False
         except Exception as e:
-            print("Error sending via WebSocket:", e)
+            print("Error sending via HTTP:", e)
             return False
-    
+
     def _save_data_callback(self, readings):
         if not readings or 'data' not in readings:
             print("No data to save")
@@ -51,7 +67,8 @@ class SensorRoutine:
             with open(filename, 'w') as f:
                 json.dump(readings, f)
             print(f"Data saved in {filename}")
-            self._send_via_websocket(readings)
+            
+            self._send_via_http(readings)
             
             gc.collect()
         except Exception as e:
