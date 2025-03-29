@@ -30,14 +30,14 @@ def set_system_mode(mode, time_factor=1):
 ╔═══════════════════════════════════════════════╗
 ║        PRECISIÓN AGRÍCOLA - BIO-IOT v1.2      ║
 ╠═══════════════════════════════════════════════╣
-║ Mode: {mode:<18} Time Factor: {time_factor:>3}x ║
-║ SW1: {DIP_SW1.value()} | SW2: {DIP_SW2.value()}                             ║
+║ Mode: {mode:<18} Time Factor: {time_factor:>3}x    ║
+║ SW1: {DIP_SW1.value()} | SW2: {DIP_SW2.value()}                                ║
 ╚═══════════════════════════════════════════════╝
 """)
 
 def emergency_procedure(time_factor=1):
     wdt = WDT(timeout=8000)
-    cycle_time = 3 * 3600 // time_factor  # 3 horas ajustadas por el factor
+    cycle_time = 3 * 3600 // time_factor
     
     while True:
         for r in EMG_RELAYS:
@@ -58,17 +58,13 @@ def countdown(seconds, wdt=None):
 dip1, dip2 = DIP_SW1.value(), DIP_SW2.value()
 
 if dip1 and dip2:
-    # SW1=1, SW2=1: Modo de emergencia
-    # Solo trabajan los aeradores en periodos de 3h
     set_system_mode("EMERGENCY MODE")
     emergency_procedure()
 elif dip1 and not dip2:
-    # SW1=0, SW2=1: Modo de trabajo normal
     set_system_mode("WORKING MODE")
     uos.dupterm(None, 0)
     esp.osdebug(None)
 elif not dip1 and dip2:
-    # SW1=1, SW2=0: Modo de demostración con tiempo acelerado
     set_system_mode("DEMO MODE", DEMO_TIME_FACTOR)
     print("Running in accelerated time mode")
 elif not dip1 and not dip2:

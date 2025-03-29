@@ -1,17 +1,15 @@
-# src/routines/sensor_routine.py
-from readings.scheduler import SensorScheduler
-from local_network.http_client import HTTPClient  # Only HTTP client import
-from local_network.wifi import connect_wifi
 import ujson as json
 import gc
 import os
+import urequests
+from readings.scheduler import SensorScheduler
+from config.secrets import DEVICE_ID
 
 class SensorRoutine:
-    def __init__(self, data_folder="data"):
+    def __init__(self, data_folder="data", device_id = DEVICE_ID):
         self.scheduler = SensorScheduler(settling_time=15)
         self.data_folder = data_folder
-        self.http_client = HTTPClient()  # Initialize HTTP client
-        
+        self.device_id = DEVICE_ID 
         try:
             os.mkdir(data_folder)
         except OSError:
@@ -20,55 +18,58 @@ class SensorRoutine:
         self.scheduler.add_callback(self._save_data_callback)
         
     def start(self):
-        print("Iniciando rutina de lecturas de sensores...")
-        success = self.scheduler.start()
-        return success
+        print("Starting sensor routine...")
+        return self.scheduler.start()
     
     def stop(self):
-        print("Deteniendo rutina de lecturas de sensores...")
+        print("Stopping sensor routine...")
         return self.scheduler.stop()
     
     def read_now(self):
-        print("Realizando lectura inmediata de sensores...")
+        print("Performing immediate sensor reading...")
         return self.scheduler.read_now()
     
+    def _send_via_http(self, readings):
+        """
+        Send sensor readings to the local server endpoint that posts to AWS IoT Core.
+        The server endpoint is expected to be:
+            POST http://192.168.4.1/sensors/data
+        """
+        try:
+            url = "http://192.168.4.1/sensors/data"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "device_id": self.device_id,
+                "timestamp": readings.get("timestamp", 0),
+                "sensors": readings.get("data", readings.get("sensors", {}))
+            }
+            response = urequests.post(url, json=payload, headers=headers)
+            if response.status_code == 200:
+                print("Data sent via HTTP successfully")
+                response.close()
+                return True
+            else:
+                print("HTTP POST failed with status:", response.status_code)
+                response.close()
+                return False
+        except Exception as e:
+            print("Error sending via HTTP:", e)
+            return False
+
     def _save_data_callback(self, readings):
         if not readings or 'data' not in readings:
-            print("No hay datos para guardar")
+            print("No data to save")
             return
             
         try:
             timestamp = readings['timestamp']
             filename = f"{self.data_folder}/sensors_{int(timestamp)}.json"
-            
             with open(filename, 'w') as f:
                 json.dump(readings, f)
+            print(f"Data saved in {filename}")
             
-            print(f"Datos guardados en {filename}")
-            
-            # Send data via HTTP
-            try:
-                if self.http_client.send_data(readings):
-                    print("Datos enviados por HTTP correctamente")
-                else:
-                    print("Error al enviar datos por HTTP")
-            except Exception as e:
-                print(f"Error HTTP: {e}")
+            self._send_via_http(readings)
             
             gc.collect()
-            
         except Exception as e:
-            print(f"Error al guardar datos: {e}")
-    
-    def check_commands(self):
-        """
-        Check for commands from the server
-        This can be expanded in the future to poll HTTP endpoints for commands
-        """
-        try:
-            if not connect_wifi():
-                return False
-            return False
-        except Exception as e:
-            print(f"Error checking commands: {e}")
-            return False
+            print(f"Error saving data: {e}")

@@ -1,33 +1,22 @@
-"""Access Point core utility"""
-from config.secrets import WIFI_CONFIG
 import network
 import time
+from config.secrets import WIFI_CONFIG
 
-def setup_access_point(
-        ssid:str = WIFI_CONFIG.get("ssid", "PrecisionAgricola"),
-        password:str = WIFI_CONFIG.get("password", "ag2025pass")
-        ):
+class AccessPointManager:
+    def __init__(self, ssid=None, password=None):
+        self.ssid = ssid or WIFI_CONFIG.get("ssid", "PrecisionAgricola")
+        self.password = password or WIFI_CONFIG.get("password", "ag2025pass")
+        self.ap = None
 
-    ap = network.WLAN(network.AP_IF)
-    ap.config(
-        essid=ssid,
-        password=password,
-        )
-    ap.active(True)
-
-    timeout = 10
-    start_time = time.time()
-    while not ap.active():
-        if time.time() - start_time > timeout:
-            raise RuntimeError(f"Failed to activate access point at timeout: {timeout}")
-        time.sleep(0.1)
-
-    print("\n=== WiFi Access Point Active ===")
-    print(f"SSID: {ssid}")
-    print(f"IP Address: {ap.ifconfig()[0]}")
-    print(f"Subnet Mask: {ap.ifconfig()[1]}")
-    print(f"Gateway: {ap.ifconfig()[2]}")
-    print(f"DNS: {ap.ifconfig()[3]}")
-    print("================================\n")
-    
-    return ap
+    def setup_access_point(self):
+        self.ap = network.WLAN(network.AP_IF)
+        self.ap.config(essid=self.ssid, password=self.password)
+        self.ap.active(True)
+        start_time = time.time()
+        timeout = 10
+        while not self.ap.active():
+            if time.time() - start_time > timeout:
+                raise RuntimeError("Failed to activate access point")
+            time.sleep(0.1)
+        print("AP Active:", self.ssid, "| IP:", self.ap.ifconfig()[0])
+        return self.ap

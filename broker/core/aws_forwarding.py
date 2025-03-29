@@ -16,43 +16,33 @@ except Exception as e:
     print(f"Error initializing AWS IoT: {e}")
 
 def send_to_aws(data):
-    """
-    Send data to AWS IoT Core
-    
-    Args:
-        data: Data to send
-        
-    Returns:
-        bool: Success status
-    """
     if not aws_enabled:
         print("AWS IoT Core not initialized, skipping upload")
         return False
     
     try:
-        # Prepare payload format for AWS IoT
         payload_json = {
             "device_id": data.get("device_id", "unknown"),
             "timestamp": data.get("timestamp", 0),
             "sensor_data": data.get("data", {})
         }
-        
-        # Convert to JSON string
         payload = json.dumps(payload_json)
         
-        # Publish to AWS IoT
-        result = picoLTE.aws.publish_message(payload)
+        retry_count = 3
+        for attempt in range(1, retry_count+1):
+            result = picoLTE.aws.publish_message(payload)
+            if result["status"] == 0:
+                print("Data sent successfully to AWS IoT Core")
+                led.toggle()
+                return True
+            else:
+                print(f"Attempt {attempt}: Error sending data to AWS IoT Core: {result}")
+                time.sleep(1)
         
-        if result["status"] == 0:  # Success
-            print("Data sent successfully to AWS IoT Core")
-            led.toggle()  # Visual indicator of successful send
-            return True
-        else:
-            print(f"Error sending data to AWS IoT Core: {result}")
-            return False
-            
+        return False
     except Exception as e:
         print(f"ERROR AWS: {e}")
         import sys
         sys.print_exception(e)
         return False
+
