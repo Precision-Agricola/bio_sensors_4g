@@ -22,47 +22,21 @@ def main():
         print("Use REPL to manually control system")
            
     elif mode == "DEMO MODE":
-        # Import required modules
         from routines.sensor_routine import SensorRoutine
-        from utils.connection_manager import ConnectionManager
         from local_network.wifi import connect_wifi
-        
-        if not connect_wifi():
-            print("WiFi not connected. Exiting...")
-            return
-        
+        from tests.test_websocket import ws_client
+
         # Start sensor routine (runs in its own thread)
         sensor_routine = SensorRoutine()
         sensor_routine.start()
-        
-        # Start aerator cycle in a separate thread (non-blocking)
+
+        # Start aerator in a separate thread
         import _thread
         _thread.start_new_thread(turn_on_aerators, ())
-        
-        # Define an async function to run the connection manager heartbeat
-        async def demo_mode_async():
-            conn_manager = ConnectionManager(uri="ws://192.168.4.1/ws")
-            
-            async def connection_heartbeat():
-                while True:
-                    if not conn_manager.connected:
-                        print("Heartbeat: Attempting connection...")
-                        await conn_manager.connect()
-                    else:
-                        try:
-                            await conn_manager.send("PING")
-                        except Exception as e:
-                            print("Heartbeat error:", e)
-                    await asyncio.sleep(30)  # Check every 30 seconds
-            
-            # Run the connection manager's run loop and heartbeat concurrently
-            asyncio.create_task(conn_manager.run())
-            asyncio.create_task(connection_heartbeat())
-            # Keep the asyncio loop alive
-            while True:
-                await asyncio.sleep(3600)
-        
-        asyncio.run(demo_mode_async())
+
+        # Run the websocket client async task
+        asyncio.run(ws_client())
+       
         
     elif mode == "WORKING MODE":
         from routines.sensor_routine import SensorRoutine

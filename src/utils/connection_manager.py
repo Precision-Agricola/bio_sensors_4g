@@ -7,58 +7,74 @@ class ConnectionManager:
         self.uri = uri
         self.ws = None
         self.connected = False
+        self.retry_count = 0
+        self.max_retries = 5
 
     async def connect(self):
-        """Try to connect and update connection status."""
+        """Improved connection with backoff and sanity checks"""
         while True:
             try:
+                if self.retry_count >= self.max_retries:
+                    print("Max retries reached. Cooling down...")
+                    await asyncio.sleep(30)
+                    self.retry_count = 0
+
                 print("ConnectionManager: Attempting connection to", self.uri)
-                self.ws = connect_ws(self.uri)
+                self.ws = connect_ws(self.uri, timeout=10)
                 self.connected = True
+                self.retry_count = 0
                 print("ConnectionManager: Connected")
                 return
             except Exception as e:
-                print("ConnectionManager: Connection error:", e)
+                print(f"ConnectionManager: Connection error ({self.retry_count}/{self.max_retries}):", e)
                 self.connected = False
-                await asyncio.sleep(3)
+                self.retry_count += 1
+                await asyncio.sleep(2 + self.retry_count*2)
 
     async def run(self):
-        """Keep the connection alive and process incoming messages."""
+        """Improved message handling with async safeguards"""
         while True:
             if not self.connected:
                 await self.connect()
             try:
-                # Blocking call from our simple client; messages are assumed to be short.
-                msg = self.ws.recv()
+                # Use non-blocking receive with timeout
+                msg = await asyncio.wait_for(self.ws.recv(), timeout=30)
                 if msg is None:
                     raise Exception("Connection closed by server")
-                print("ConnectionManager: Received message:", msg)
-                # Handle heartbeat (ping–pong) logic.
+                    
+                print("Received:", msg)
                 if msg.strip() == "HEARTBEAT":
-                    self.ws.send("PONG")
-                    print("ConnectionManager: Sent PONG")
-                # You can add processing for other messages here.
-                await asyncio.sleep(0)
+                    await self.send("PONG")
+                await asyncio.sleep(0.1)
+                
+            except asyncio.TimeoutError:
+                print("No data received, sending keepalive")
+                await self.send("PING")
             except Exception as e:
-                print("ConnectionManager: Error in connection:", e)
-                self.connected = False
-                try:
-                    self.ws.close()
-                except Exception as close_err:
-                    print("ConnectionManager: Error closing connection:", close_err)
-                await asyncio.sleep(3)
+                print("Connection error:", e)
+                await self.handle_disconnect()
+
+    async def handle_disconnect(self):
+        """Centralized disconnect handling"""
+        self.connected = False
+        try:
+            if self.ws:
+                self.ws.close()
+        except Exception as e:
+            print("Cleanup error:", e)
+        finally:
+            self.ws = None
+            await asyncio.sleep(1)
 
     async def send(self, message):
-        """Send a message if connected; otherwise, drop or queue it."""
-        if self.connected and self.ws:
+        """Safe send with reconnect attempt"""
+        if not self.connected:
+            await self.connect()
+            
+        if self.connected:
             try:
                 self.ws.send(message)
-                print("ConnectionManager: Sent message:", message)
+                print("Sent:", message)
             except Exception as e:
-                print("ConnectionManager: Error sending message:", e)
-                self.connected = False
-                try:
-                    self.ws.close()
-                except Exception:
-                    pass
-
+                print("Send error:", e)
+                await self.handle_disconnect()

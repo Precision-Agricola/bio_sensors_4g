@@ -24,8 +24,8 @@ async def ws_client():
                 if msg.strip() == "PING":
                     ws.send("PONG")
                     print("Sent: PONG")
-                # Process other messages as needed
-                await asyncio.sleep(15)  # yield control to the scheduler
+                # Adjust sleep as needed based on your communication frequency
+                await asyncio.sleep(15)
         except Exception as e:
             print("Error:", e, "- reconnecting in 3 seconds...")
             try:
@@ -34,7 +34,5 @@ async def ws_client():
                 print("Error closing WebSocket:", close_err)
             await asyncio.sleep(3)
 
-async def main():
-    await ws_client()
-
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(ws_client())
