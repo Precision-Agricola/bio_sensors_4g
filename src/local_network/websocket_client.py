@@ -17,12 +17,10 @@ class WebSocketClient:
     def send(self, message):
         if isinstance(message, str):
             message = message.encode("utf-8")
-        # Build a text frame (FIN + opcode 1)
-        fin_opcode = 0x81
+        fin_opcode = 0x81  # FIN + text frame
         length = len(message)
         mask_bit = 0x80  # Clients must mask payload
-        header = bytearray()
-        header.append(fin_opcode)
+        header = bytearray([fin_opcode])
         if length < 126:
             header.append(mask_bit | length)
         elif length < 65536:
@@ -31,45 +29,43 @@ class WebSocketClient:
         else:
             header.append(mask_bit | 127)
             header += struct.pack("!Q", length)
-        # Generate a 4-byte mask
-        mask = bytearray(4)
-        for i in range(4):
-            mask[i] = urandom.getrandbits(8)
+        # Create a 4-byte mask
+        mask = bytearray([urandom.getrandbits(8) for _ in range(4)])
         header += mask
         # Mask payload
-        masked = bytearray(length)
-        for i in range(length):
-            masked[i] = message[i] ^ mask[i % 4]
+        masked = bytearray(message[i] ^ mask[i % 4] for i in range(length))
         self.sock.write(header)
         self.sock.write(masked)
 
-    def recv(self):
-        # Read first two bytes of frame header
-        first_two = self.sock.read(2)
-        if not first_two:
-            raise Exception("Connection closed")
-        b1, b2 = struct.unpack("!BB", first_two)
-        opcode = b1 & 0x0F
-        payload_len = b2 & 0x7F
-        if payload_len == 126:
-            ext = self.sock.read(2)
-            payload_len = struct.unpack("!H", ext)[0]
-        elif payload_len == 127:
-            ext = self.sock.read(8)
-            payload_len = struct.unpack("!Q", ext)[0]
-        data = self.sock.read(payload_len)
-        # Server messages are not masked so we just decode if text
-        if opcode == 1:
-            return data.decode("utf-8")
-        else:
-            return data
+    async def async_recv(self):
+        """Non-blocking receive using polling."""
+        while True:
+            first_two = self.sock.read(2)
+            if first_two and len(first_two) == 2:
+                b1, b2 = struct.unpack("!BB", first_two)
+                opcode = b1 & 0x0F
+                payload_len = b2 & 0x7F
+                if payload_len == 126:
+                    ext = self.sock.read(2)
+                    payload_len = struct.unpack("!H", ext)[0]
+                elif payload_len == 127:
+                    ext = self.sock.read(8)
+                    payload_len = struct.unpack("!Q", ext)[0]
+                data = self.sock.read(payload_len)
+                if opcode == 1:
+                    return data.decode("utf-8")
+                else:
+                    return data
+            await asyncio.sleep(0.1)
 
     def close(self):
         self.open = False
-        self.sock.close()
+        try:
+            self.sock.close()
+        except Exception as e:
+            print("Error closing socket:", e)
 
 def connect_ws(uri):
-    # Very simple URI parsing (expects ws://host[:port]/path)
     m = re.match(r"ws://([^:/]+)(?::(\d+))?(/.*)?", uri)
     if not m:
         raise Exception("Invalid URI")
@@ -79,10 +75,9 @@ def connect_ws(uri):
     sock = usocket.socket()
     addr = usocket.getaddrinfo(hostname, port)[0][-1]
     sock.connect(addr)
+    sock.setblocking(False)  # switch to non-blocking mode
     # Generate a random Sec-WebSocket-Key
-    key_bytes = bytearray(16)
-    for i in range(16):
-        key_bytes[i] = urandom.getrandbits(8)
+    key_bytes = bytearray([urandom.getrandbits(8) for _ in range(16)])
     key = ubinascii.b2a_base64(key_bytes).strip().decode("utf-8")
     handshake = (
         "GET {} HTTP/1.1\r\n"
@@ -94,16 +89,17 @@ def connect_ws(uri):
         "\r\n"
     ).format(path, hostname, port, key)
     sock.write(handshake.encode("utf-8"))
-    # Check handshake response
-    resp = sock.readline()
-    if not resp.startswith(b"HTTP/1.1 101"):
-        raise Exception("Handshake failed: " + resp.decode("utf-8"))
+    # Wait for handshake response
+    while True:
+        line = sock.readline()
+        if line and line.startswith(b"HTTP/1.1 101"):
+            break
+        asyncio.sleep(0.1)
     while True:
         line = sock.readline()
         if line == b"\r\n":
             break
     return WebSocketClient(sock)
-
 
 async def websocket_client():
     while True:
@@ -115,23 +111,31 @@ async def websocket_client():
                 await asyncio.sleep(5)
                 continue
 
-            print("WiFi connected. Attempting to connect to", SERVER_URI)
+            print("WiFi connected. Connecting to", SERVER_URI)
             ws = connect_ws(SERVER_URI)
             print("Connected to WebSocket!")
             while True:
-                msg = ws.recv()  # blocking call – assumes small messages
+                msg = await ws.async_recv()
                 if msg is None:
                     raise Exception("Connection lost (received None)")
                 print("Received:", msg)
                 if msg.strip() == "PING":
                     ws.send("PONG")
                     print("Sent: PONG")
-                # Adjust sleep as needed based on your communication frequency
                 await asyncio.sleep(15)
         except Exception as e:
             print("Error:", e, "- reconnecting in 3 seconds...")
-            try:
-                ws.close()
-            except Exception as close_err:
-                print("Error closing WebSocket:", close_err)
+            if ws:
+                try:
+                    ws.close()
+                except Exception as close_err:
+                    print("Error closing WebSocket:", close_err)
             await asyncio.sleep(3)
+
+async def main():
+    asyncio.create_task(websocket_client())
+    while True:
+        await asyncio.sleep(1)
+
+if __name__ == '__main__':
+    asyncio.run(main())
