@@ -101,7 +101,7 @@ def connect_ws(uri):
             break
     return WebSocketClient(sock)
 
-async def websocket_client():
+async def websocket_client(sensor_routine=None):
     while True:
         ws = None
         try:
@@ -110,18 +110,26 @@ async def websocket_client():
                 print("WiFi not connected. Waiting 5 seconds before retrying...")
                 await asyncio.sleep(5)
                 continue
-
+                
             print("WiFi connected. Connecting to", SERVER_URI)
             ws = connect_ws(SERVER_URI)
             print("Connected to WebSocket!")
+            
             while True:
                 msg = await ws.async_recv()
                 if msg is None:
                     raise Exception("Connection lost (received None)")
+                    
                 print("Received:", msg)
                 if msg.strip() == "PING":
                     ws.send("PONG")
                     print("Sent: PONG")
+                    
+                    # Try to send any pending data when we confirm connection
+                    if sensor_routine:
+                        print("Connection active, retrying to send pending data...")
+                        sensor_routine.retry_pending_data()
+                        
                 await asyncio.sleep(15)
         except Exception as e:
             print("Error:", e, "- reconnecting in 3 seconds...")
@@ -132,8 +140,8 @@ async def websocket_client():
                     print("Error closing WebSocket:", close_err)
             await asyncio.sleep(3)
 
-async def main():
-    asyncio.create_task(websocket_client())
+async def main(sensor_routine=None):
+    asyncio.create_task(websocket_client(sensor_routine))
     while True:
         await asyncio.sleep(1)
 
