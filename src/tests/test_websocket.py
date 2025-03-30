@@ -6,6 +6,7 @@ SERVER_URI = "ws://192.168.4.1/ws"
 
 async def ws_client():
     while True:
+        ws = None
         try:
             print("Checking WiFi connectivity...")
             if not connect_wifi():
