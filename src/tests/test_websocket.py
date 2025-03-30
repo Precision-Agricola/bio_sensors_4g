@@ -1,6 +1,6 @@
 import uasyncio as asyncio
 from local_network.wifi import connect_wifi
-from local_network.ws_client import connect_ws
+from local_network.websocket_client import connect_ws
 
 SERVER_URI = "ws://192.168.4.1/ws"
 
