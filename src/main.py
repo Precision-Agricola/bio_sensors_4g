@@ -23,6 +23,11 @@ def main():
         from routines.sensor_routine import SensorRoutine
         from local_network.websocket_client import websocket_client 
         import _thread
+        import uos, esp
+
+        uos.dupterm(None, 0)
+        esp.osdebug(None)
+
 
         # Start sensor routine (runs in its own thread)
         sensor_routine = SensorRoutine()
