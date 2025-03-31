@@ -1,6 +1,7 @@
 import ujson as json
 import gc
 import os
+import time
 import urequests
 from readings.scheduler import SensorScheduler
 from config.secrets import DEVICE_ID
@@ -68,8 +69,48 @@ class SensorRoutine:
                 json.dump(readings, f)
             print(f"Data saved in {filename}")
             
-            self._send_via_http(readings)
+            # Try to send this reading and also process any pending files
+            self._process_pending_data()
             
             gc.collect()
         except Exception as e:
             print(f"Error saving data: {e}")
+
+    def _process_pending_data(self):
+        try:
+            files = [f for f in os.listdir(self.data_folder) if f.startswith("sensors_")]
+            files.sort()  # Process oldest first
+            
+            files_processed = 0
+            for filename in files:
+                # Limit batch size to avoid overloading
+                if files_processed >= 5:  # Process max 5 files per batch
+                    print("Batch limit reached, will process remaining files later")
+                    break
+                    
+                filepath = f"{self.data_folder}/{filename}"
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                
+                # Try to send via HTTP
+                if self._send_via_http(data):
+                    # Only remove if successful
+                    os.remove(filepath)
+                    print(f"Sent and removed {filepath}")
+                    files_processed += 1
+                    
+                    # Add delay between transmissions (500ms)
+                    time.sleep(0.5)
+                else:
+                    # Stop trying if we hit a failure
+                    break
+                    
+            print(f"Processed {files_processed} pending files")
+        except Exception as e:
+            print(f"Error processing pending data: {e}")
+
+
+    # Add this method to allow manual retries
+    def retry_pending_data(self):
+        print("Retrying to send pending data...")
+        self._process_pending_data()

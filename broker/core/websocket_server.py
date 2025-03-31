@@ -1,14 +1,29 @@
 import uasyncio as asyncio
 import time
 import random
+import machine
 from microdot import Microdot, Response, send_file
 from websocket import with_websocket
 from core.aws_forwarding import send_to_aws
+
+# Configure watchdog with maximum (8 seconds)
+wdt = machine.WDT(timeout=8000)
+last_heartbeat = time.ticks_ms()  # Global timestamp
 
 Response.default_content_type = 'text/html'
 
 app = Microdot()
 clients = {}
+
+async def watchdog_feeder():
+    global last_heartbeat
+    while True:
+        if time.ticks_diff(time.ticks_ms(), last_heartbeat) < 5 * 60 * 1000:
+            wdt.feed()
+        else:
+            print("No PONG for 5 minutes: letting watchdog reset the system.")
+            break
+        await asyncio.sleep(1)
 
 @app.route('/')
 async def index(request):
@@ -31,6 +46,7 @@ async def index(request):
 @app.route('/ws')
 @with_websocket
 async def ws_handler(request, ws):
+    global last_heartbeat
     client_id = id(ws)
     print("WebSocket client connected:", client_id)
     while True:
@@ -41,6 +57,7 @@ async def ws_handler(request, ws):
                 print("Connection lost from", client_id)
                 break
             if data.strip() == "PONG":
+                last_heartbeat = time.ticks_ms()
                 # Update heartbeat timestamp or similar logic here if needed
                 print("Received PONG from", client_id)
             else:
