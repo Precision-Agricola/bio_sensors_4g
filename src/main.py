@@ -6,6 +6,7 @@ Investigation and Development Department
 Feb 2025
 Modified: March 2025 - Sistema de timer unificado
 """
+from machine import WDT
 import uasyncio as asyncio
 import config.runtime as config
 from routines.aerator_3hr import turn_on_aerators
@@ -28,16 +29,23 @@ def main():
         uos.dupterm(None, 0)
         esp.osdebug(None)
 
-
-        # Start sensor routine (runs in its own thread)
         sensor_routine = SensorRoutine()
         sensor_routine.start()
 
         # Start aerator in a separate thread
         _thread.start_new_thread(turn_on_aerators, ())
 
-        # Run the websocket client async task - pass the sensor_routine instance
-        asyncio.run(websocket_client(sensor_routine))
+        async def feed_watchdog(wdt, interval=5000):
+            while True:
+                wdt.feed()
+                await asyncio.sleep_ms(interval)
+
+        async def main_async(sensor_routine):
+            wdt = WDT(timeout=300000)
+            asyncio.create_task(feed_watchdog(wdt))
+            await websocket_client(sensor_routine)
+
+        asyncio.run(main_async(sensor_routine))
         
     elif mode == "WORKING MODE":
         import  uos, esp
