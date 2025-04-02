@@ -18,10 +18,10 @@ clients = {}
 async def watchdog_feeder():
     global last_heartbeat
     while True:
-        if time.ticks_diff(time.ticks_ms(), last_heartbeat) < 5 * 60 * 1000:
+        if time.ticks_diff(time.ticks_ms(), last_heartbeat) < 20 * 60 * 1000:
             wdt.feed()
         else:
-            print("No PONG for 5 minutes: letting watchdog reset the system.")
+            print("No PONG for 20 minutes: letting watchdog reset the system.")
             break
         await asyncio.sleep(1)
 

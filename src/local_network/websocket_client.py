@@ -130,7 +130,7 @@ async def websocket_client(sensor_routine=None):
                         print("Connection active, retrying to send pending data...")
                         sensor_routine.retry_pending_data()
                         
-                await asyncio.sleep(15)
+                await asyncio.sleep(120)
         except Exception as e:
             print("Error:", e, "- reconnecting in 3 seconds...")
             if ws:
