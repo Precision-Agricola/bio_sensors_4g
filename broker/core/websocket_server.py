@@ -38,8 +38,7 @@ def log_watchdog_event():
     # Log the event.
     with open('/log.txt', 'a') as f:
         f.write("{} - Watchdog triggered. /data file count: {}\n".format(ts, file_count))
-    print("No PONG for 20 minutes: letting watchdog reset the system.")
-    machine.restart()
+    print("No PONG for  minutes: letting watchdog reset the system.")
 
 
 @app.route('/')
