@@ -1,4 +1,5 @@
 import uasyncio as asyncio
+import os
 import time
 import random
 import machine
@@ -18,12 +19,28 @@ clients = {}
 async def watchdog_feeder():
     global last_heartbeat
     while True:
-        if time.ticks_diff(time.ticks_ms(), last_heartbeat) < 20 * 60 * 1000:
+        if time.ticks_diff(time.ticks_ms(), last_heartbeat) < 5 * 60 * 1000:
             wdt.feed()
         else:
-            print("No PONG for 20 minutes: letting watchdog reset the system.")
+            log_watchdog_event()
             break
         await asyncio.sleep(1)
+
+def log_watchdog_event():
+    # Create a timestamp string.
+    t = time.localtime()
+    ts = "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5])
+    # Count files in /data.
+    try:
+        file_count = len(os.listdir('/data'))
+    except Exception as e:
+        file_count = "error"
+    # Log the event.
+    with open('/log.txt', 'a') as f:
+        f.write("{} - Watchdog triggered. /data file count: {}\n".format(ts, file_count))
+    print("No PONG for 20 minutes: letting watchdog reset the system.")
+    machine.restart()
+
 
 @app.route('/')
 async def index(request):
