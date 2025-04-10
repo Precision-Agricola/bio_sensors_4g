@@ -25,7 +25,6 @@ class BMP3901Sensor(Sensor):
             )
             
             found_addresses = i2c.scan()
-            print(f"BMP: I2C Scan address: {found_addresses}")
             if self.address not in found_addresses:
                 return None
             
