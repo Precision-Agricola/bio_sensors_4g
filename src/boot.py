@@ -6,7 +6,7 @@ import network
 DIP_SW1 = Pin(config.BOOT_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
 DIP_SW2 = Pin(config.TEST_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
 EMG_RELAYS = (Pin(config.AERATOR_PIN_A, Pin.OUT), Pin(config.AERATOR_PIN_B, Pin.OUT))
-DEMO_TIME_FACTOR = 60
+DEMO_TIME_FACTOR = 7
 
 def connect_wifi(ssid, password):
     wlan = network.WLAN(network.STA_IF)
