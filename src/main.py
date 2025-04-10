@@ -1,11 +1,3 @@
-"""
-Sensor reading and data transmission code
-Precisión Agrícola
-Investigation and Development Department
-@authors: Caleb, Raúl, Eduardo
-Feb 2025
-Modified: March 2025 - Sistema de timer unificado
-"""
 import uasyncio as asyncio
 import config.runtime as config
 from routines.aerator_3hr import turn_on_aerators
@@ -16,8 +8,6 @@ def main():
 
     if mode == "PROGRAM MODE":
         print("Program mode active - Development interfaces enabled")
-        print("No automatic routines will start")
-        print("Use REPL to manually control system")
            
     elif mode == "DEMO MODE":
         from routines.sensor_routine import SensorRoutine

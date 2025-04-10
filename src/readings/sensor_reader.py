@@ -1,4 +1,3 @@
-"""Reading all sensors wrapper"""
 import json
 import time
 from sensors.base import sensor_registry
@@ -20,7 +19,6 @@ class SensorReader:
         self.load_sensors()
     
     def load_sensors(self):
-        """Carga los sensores desde el archivo de configuración"""
         try:
             with open(self.config_path, 'r') as f:
                 sensor_configs = json.load(f)
@@ -45,13 +43,6 @@ class SensorReader:
             print(f"Error al cargar sensores: {str(e)}")
     
     def read_sensors(self, relay='A', custom_settling_time=None):
-        """
-        Lee todos los sensores activando el relé especificado
-        
-        Args:
-            relay: 'A' o 'B' para seleccionar qué grupo de sensores activar
-            custom_settling_time: Tiempo personalizado de asentamiento en segundos
-        """
         settling = custom_settling_time if custom_settling_time is not None else self.settling_time
         readings = {}
         self.sensor_relay.activate_a()
@@ -77,5 +68,4 @@ class SensorReader:
         return self.last_readings
     
     def get_last_readings(self):
-        """Retorna las últimas lecturas sin leer los sensores nuevamente"""
         return self.last_readings
