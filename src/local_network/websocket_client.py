@@ -4,8 +4,15 @@ import urandom
 import struct
 import re
 import uasyncio as asyncio
+import config.runtime as runtime_config
+import time
 from config.secrets import WIFI_CONFIG
-from local_network.wifi import connect_wifi
+from local_network.wifi_manager import connect_wifi, is_connected
+
+MAX_WIFI_ATTEMPTS = 5
+WIFI_RETRY_DELAY_S = 5
+WIFI_FAIL_WAIT_S = 30
+WS_RECONNECT_DELAY_S = 3
 
 SERVER_URI = WIFI_CONFIG.get('ws_server_uri', 'ws://192.168.4.1/ws')
 
@@ -101,43 +108,77 @@ def connect_ws(uri):
     return WebSocketClient(sock)
 
 async def websocket_client(sensor_routine=None):
+    """
+    Gestiona la conexión WebSocket, incluyendo la conexión WiFi robusta
+    y la solicitud de reinicio coordinado en caso de fallo persistente.
+    """
+    wifi_connection_attempts = 0
+    last_wifi_reset_attempt = 0
+
     while True:
         ws = None
         try:
-            print("Checking WiFi connectivity...")
-            if not connect_wifi():
-                print("WiFi not connected. Waiting 5 seconds before retrying...")
-                await asyncio.sleep(5)
+            if runtime_config.is_reboot_requested():
+                print("Reboot solicitado, esperando a que el scheduler lo ejecute...")
+                await asyncio.sleep(30)
                 continue
-                
-            print("WiFi connected. Connecting to", SERVER_URI)
+
+            print("Verificando conectividad WiFi...")
+            should_reset_iface = (wifi_connection_attempts == 1) or \
+                                 (wifi_connection_attempts > 0 and time.time() - last_wifi_reset_attempt > 300)
+
+            if not connect_wifi(reset_interface=should_reset_iface):
+                wifi_connection_attempts += 1
+                print(f"Fallo al conectar WiFi (Intento {wifi_connection_attempts}/{MAX_WIFI_ATTEMPTS}).")
+
+                if should_reset_iface:
+                     last_wifi_reset_attempt = time.time()
+
+                if wifi_connection_attempts >= MAX_WIFI_ATTEMPTS:
+                    print(f"Se alcanzó el máximo de {MAX_WIFI_ATTEMPTS} intentos fallidos de WiFi.")
+                    print("Solicitando reinicio coordinado del sistema...")
+                    runtime_config.request_reboot()
+                    await asyncio.sleep(WIFI_FAIL_WAIT_S)
+                else:
+                    await asyncio.sleep(WIFI_RETRY_DELAY_S)
+
+                continue
+
+            print("WiFi conectado exitosamente.")
+            if wifi_connection_attempts > 0:
+                 print(f"Se necesitaron {wifi_connection_attempts} intentos para conectar WiFi.")
+            wifi_connection_attempts = 0
+            runtime_config.clear_reboot_request()
+            last_wifi_reset_attempt = 0
+
+            print("Intentando conectar al servidor WebSocket:", SERVER_URI)
             ws = connect_ws(SERVER_URI)
-            print("Connected to WebSocket!")
-            
+            print("Conectado al servidor WebSocket!")
+
             while True:
                 msg = await ws.async_recv()
                 if msg is None:
-                    raise Exception("Connection lost (received None)")
-                    
-                print("Received:", msg)
-                if msg.strip() == "PING":
+                    raise ConnectionError("Conexión WebSocket perdida (recv devolvió None)")
+
+                print(f"WS Recibido: {msg}")
+                if isinstance(msg, str) and msg.strip().upper() == "PING":
+                    print("WS Enviado: PONG")
                     ws.send("PONG")
-                    print("Sent: PONG")
-                    
-                    # Try to send any pending data when we confirm connection
                     if sensor_routine:
-                        print("Connection active, retrying to send pending data...")
+                        print("Conexión activa, intentando enviar datos pendientes...")
                         sensor_routine.mark_retry_flag()
-                        
-                await asyncio.sleep(15)
+                await asyncio.sleep(30)
+
         except Exception as e:
-            print("Error:", e, "- reconnecting in 3 seconds...")
+            print(f"Error en bucle WebSocket/WiFi: {e}")
             if ws:
                 try:
+                    print("Cerrando conexión WebSocket...")
                     ws.close()
                 except Exception as close_err:
-                    print("Error closing WebSocket:", close_err)
-            await asyncio.sleep(3)
+                    print(f"Error al cerrar WebSocket: {close_err}")
+            print(f"Reintentando ciclo completo en {WS_RECONNECT_DELAY_S} segundos...")
+            await asyncio.sleep(WS_RECONNECT_DELAY_S)
 
 async def main(sensor_routine=None):
     asyncio.create_task(websocket_client(sensor_routine))
