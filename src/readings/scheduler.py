@@ -5,9 +5,10 @@ import _thread
 import time
 from readings.sensor_reader import SensorReader
 import config.runtime as runtime_config
+import gc
 
 class SensorScheduler:
-    def __init__(self, settling_time=30):
+    def __init__(self, settling_time=5):
         self.reader = SensorReader(settling_time=settling_time)
         self.running = False
         self.thread_id = None
@@ -19,6 +20,7 @@ class SensorScheduler:
         if self.running:
             return False
             
+        gc.collect()
         self.running = True
         self.thread_id = _thread.start_new_thread(self._monitoring_task, ())
         return True

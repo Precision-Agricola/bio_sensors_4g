@@ -17,6 +17,14 @@
       "wire_color": "brown" 
     },
     {
+      "name": "Sensor pH",
+      "model": "PH",
+      "protocol": "ANALOG",
+      "vin": "3.3",
+      "signal": 32,
+      "wire_color": "TBD"
+    },
+    {
       "name": "Pressure",
       "model": "BMP3901",
       "protocol": "i2c",

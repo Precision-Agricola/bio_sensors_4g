@@ -8,6 +8,7 @@ from system.control.relays import SensorRelay
 import sensors.amonia.sen0567
 import sensors.hydrogen_sulfide.sen0568
 import sensors.pressure.bmp3901
+import sensors.ph.ph_sensor
 
 class SensorReader:
     def __init__(self, config_path="config/sensors.json", settling_time=30):

@@ -1,13 +1,29 @@
 from machine import Pin, WDT
 import uos, esp, time
 import config.runtime as config
+import network
 
 DIP_SW1 = Pin(config.BOOT_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
 DIP_SW2 = Pin(config.TEST_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
 EMG_RELAYS = (Pin(config.AERATOR_PIN_A, Pin.OUT), Pin(config.AERATOR_PIN_B, Pin.OUT))
 DEMO_TIME_FACTOR = 60
 
-print(f"""
+def connect_wifi(ssid, password):
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print("Conectando a WiFi...")
+        wlan.connect(ssid, password)
+        timeout = time.time() + 10
+        while not wlan.isconnected():
+            if time.time() > timeout:
+                print("Error: Timeout WiFi")
+                return False
+            time.sleep(0.5)
+    print(f"Conectado a {ssid} con IP: {wlan.ifconfig()[0]}")
+    return True
+
+print(r"""
        **
       *****
     *********
@@ -22,6 +38,9 @@ print(f"""
       *  ((((##########
          (########
 """)
+
+# WiFi al arranque
+connect_wifi("PrecisionAgricola", "ag2025pass")
 
 def set_system_mode(mode, time_factor=1):
     config.set_mode(mode)
@@ -73,3 +92,6 @@ elif not dip1 and not dip2:
 else:
     set_system_mode("UNKNOWN MODE")
     print("Error: Invalid switch configuration")
+
+import gc
+gc.collect()
