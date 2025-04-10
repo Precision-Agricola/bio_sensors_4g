@@ -38,7 +38,6 @@ class WebSocketClient:
         self.sock.write(masked)
 
     async def async_recv(self):
-        """Non-blocking receive using polling."""
         while True:
             first_two = self.sock.read(2)
             if first_two and len(first_two) == 2:
@@ -128,7 +127,7 @@ async def websocket_client(sensor_routine=None):
                     # Try to send any pending data when we confirm connection
                     if sensor_routine:
                         print("Connection active, retrying to send pending data...")
-                        sensor_routine.retry_pending_data()
+                        sensor_routine.mark_retry_flag()
                         
                 await asyncio.sleep(15)
         except Exception as e:

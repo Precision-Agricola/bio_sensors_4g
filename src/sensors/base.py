@@ -1,4 +1,3 @@
-"""Base model for sensors digital and analogue with respective signal communication protocol"""
 sensor_registry = {}
 
 def register_sensor(model, protocol):
@@ -21,14 +20,9 @@ class Sensor:
         self._init_hardware()
 
     def _init_hardware(self):
-        """Base hardware initialization"""
         self._initialized = True
 
     def read(self):
-        """
-        Public read method with basic error handling.
-        Returns: dict of values or None.
-        """
         if not self._initialized:
             return None
 
@@ -39,5 +33,4 @@ class Sensor:
             return None
 
     def _read_implementation(self):
-        """Sensor-specific read logic (MUST override)"""
         raise NotImplementedError("Subclasses must implement _read_implementation()")

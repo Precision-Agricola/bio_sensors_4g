@@ -1,13 +1,12 @@
-"""Scheduler for sensor readings"""
 #src/readings/scheduler.py
-
 import _thread
 import time
 from readings.sensor_reader import SensorReader
 import config.runtime as runtime_config
+import gc
 
 class SensorScheduler:
-    def __init__(self, settling_time=30):
+    def __init__(self, settling_time=5):
         self.reader = SensorReader(settling_time=settling_time)
         self.running = False
         self.thread_id = None
@@ -15,37 +14,33 @@ class SensorScheduler:
         self.callbacks = []
         
     def start(self):
-        """Inicia el hilo que monitorea los aeradores y programa lecturas"""
         if self.running:
             return False
             
+        gc.collect()
         self.running = True
         self.thread_id = _thread.start_new_thread(self._monitoring_task, ())
         return True
         
     def stop(self):
-        """Detiene el monitoreo y las lecturas programadas"""
         self.running = False
         # En MicroPython no podemos matar hilos directamente
         # Esperamos a que el hilo termine naturalmente
         return True
     
     def add_callback(self, callback):
-        """Añade una función callback que se llamará con los resultados de cada lectura"""
         if callable(callback) and callback not in self.callbacks:
             self.callbacks.append(callback)
             return True
         return False
     
     def remove_callback(self, callback):
-        """Elimina un callback previamente registrado"""
         if callback in self.callbacks:
             self.callbacks.remove(callback)
             return True
         return False
     
     def _monitoring_task(self):
-        """Tarea que corre en un hilo separado para monitorear el ciclo de aeradores"""
         from system.control.relays import LoadRelay
         
         aerator_relay = LoadRelay()
@@ -77,8 +72,6 @@ class SensorScheduler:
                     if (mid_cycle_time - 60) <= time_elapsed <= (mid_cycle_time + 60):
                         # Verificar si ya hicimos una lectura en este ciclo
                         if time.time() - self.last_reading_time > on_time / 2:
-                            print(f"Realizando lectura programada a mitad del ciclo (tiempo transcurrido: {time_elapsed}s)")
-                            
                             # Leer sensores
                             readings = self.reader.read_sensors(custom_settling_time=10)
                             self.last_reading_time = time.time()
@@ -101,10 +94,8 @@ class SensorScheduler:
                 time.sleep(60)  # Esperar más tiempo si hay error
     
     def read_now(self):
-        """Realiza una lectura inmediata sin esperar al ciclo"""
         readings = self.reader.read_sensors()
         
-        # Llamar a los callbacks registrados
         for callback in self.callbacks:
             try:
                 callback(readings)

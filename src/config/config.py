@@ -1,5 +1,3 @@
-"""Initialize the sensor registration and load the device and sensors configuation
-"""
 import json
 
 RTC_CLK_PIN = 16
@@ -17,19 +15,6 @@ WIFI_CONFIG = {
 }
 
 def load_device_config(config_file='config/device_config.json'):
-    """Loads device configuration from a JSON file.
-        Args:
-            config_file (str, optional): Path to the JSON configuration file.
-                Defaults to 'config/device_config.json'.
-        Returns:
-            dict: A dictionary containing the device configuration.
-                Returns a default configuration if the file cannot be loaded.
-                The default configuration includes:
-                - wifi: {'ssid': '', 'password': ''}
-                - server_ip: '192.168.1.100'
-                - port: 5000
-        """
-
     try:
         with open(config_file) as f:
             return json.load(f)

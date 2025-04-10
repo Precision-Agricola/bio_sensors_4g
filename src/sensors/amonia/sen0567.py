@@ -1,5 +1,3 @@
-"""NH3 - Amonia analog sensor"""
-
 from sensors.base import Sensor, register_sensor
 from protocols.analog import AnalogInput
 

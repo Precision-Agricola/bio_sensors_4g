@@ -1,39 +1,35 @@
 from machine import Pin, WDT
 import uos, esp, time
 import config.runtime as config
+import network
 
 DIP_SW1 = Pin(config.BOOT_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
 DIP_SW2 = Pin(config.TEST_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
 EMG_RELAYS = (Pin(config.AERATOR_PIN_A, Pin.OUT), Pin(config.AERATOR_PIN_B, Pin.OUT))
 DEMO_TIME_FACTOR = 60
 
-print(f"""
-       **
-      *****
-    *********
-   ************
-  **************    (((((((((#
-  ***********   (((((((((((###
- **********  (((((((((((######
- ********   ((((((((((#######
-  ******  ((((((((((#######
-   *****  (((((((##########
-    ***  ((((((##########
-      *  ((((##########
-         (########
-""")
+def connect_wifi(ssid, password):
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print("Conectando a WiFi...")
+        wlan.connect(ssid, password)
+        timeout = time.time() + 15 
+        while not wlan.isconnected():
+            if time.time() > timeout:
+                print("Error: Timeout WiFi")
+                return False
+            time.sleep(1)
+    print(f"Conectado a {ssid} con IP: {wlan.ifconfig()[0]}")
+    return True
+
+connect_wifi("PrecisionAgricola", "ag2025pass")
 
 def set_system_mode(mode, time_factor=1):
     config.set_mode(mode)
     config.set_speed(time_factor)
-    print(f"""
-╔═══════════════════════════════════════════════╗
-║        PRECISIÓN AGRÍCOLA - BIO-IOT v1.2      ║
-╠═══════════════════════════════════════════════╣
-║ Mode: {mode:<18} Time Factor: {time_factor:>3}x    ║
-║ SW1: {DIP_SW1.value()} | SW2: {DIP_SW2.value()}                                ║
-╚═══════════════════════════════════════════════╝
-""")
+    print(f" Mode: {mode:<18} Time Factor: {time_factor:>3}")
+    print(f"SW1: {DIP_SW1.value()} | SW2: {DIP_SW2.value()}") 
 
 def emergency_procedure(time_factor=1):
     wdt = WDT(timeout=8000)
@@ -73,3 +69,6 @@ elif not dip1 and not dip2:
 else:
     set_system_mode("UNKNOWN MODE")
     print("Error: Invalid switch configuration")
+
+import gc
+gc.collect()
