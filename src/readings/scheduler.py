@@ -4,6 +4,7 @@ import time
 from readings.sensor_reader import SensorReader
 import config.runtime as runtime_config
 import gc
+import machine
 
 class SensorScheduler:
     def __init__(self, settling_time=5):
@@ -16,7 +17,7 @@ class SensorScheduler:
     def start(self):
         if self.running:
             return False
-            
+
         gc.collect()
         self.running = True
         self.thread_id = _thread.start_new_thread(self._monitoring_task, ())
@@ -41,65 +42,79 @@ class SensorScheduler:
         return False
     
     def _monitoring_task(self):
-        from system.control.relays import LoadRelay
-        
-        aerator_relay = LoadRelay()
-        
-        # Inicializar para detectar cambios
-        last_state = None
-        cycle_start_time = 0
-        
+        print("Tarea de monitoreo de sensores iniciada.")
+        try:
+            from system.control.relays import LoadRelay
+            aerator_relay = LoadRelay()
+            print("Instancia de LoadRelay creada en _monitoring_task.")
+        except Exception as e:
+            print(f"Error CRÍTICO al importar/instanciar LoadRelay: {e}")
+            print("La tarea de monitoreo no puede continuar sin control de relés.")
+            self.running = False
+            return
+
+        last_state = aerator_relay.get_state()
+        print(f"Estado inicial del aireador: {'ON' if last_state else 'OFF'}")
+        cycle_start_time = time.time() if last_state else 0
+
         while self.running:
             try:
-                # Obtener configuración actual
-                time_factor = runtime_config.get_speed()
-                on_time = 3 * 3600 // time_factor  # 3 horas en segundos, ajustado por factor
-                
-                # Obtener estado actual del aerador
                 current_state = aerator_relay.get_state()
-                
-                # Si el estado cambió a encendido, registrar el inicio del ciclo
-                if current_state and last_state != current_state:
-                    cycle_start_time = time.time()
-                    print("Aerador encendido - iniciando ciclo")
-                
-                # Si el aerador está encendido, verificar si es tiempo de leer sensores
+                state_changed = (current_state != last_state)
+
+                if state_changed:
+                    print(f"Cambio de estado del aireador detectado: {'OFF' if last_state else 'ON'} -> {'ON' if current_state else 'OFF'}")
+                    if current_state:
+                        cycle_start_time = time.time()
+
+                if state_changed and runtime_config.is_reboot_requested():
+                    print("!!! Condición de reinicio cumplida: Cambio de estado del ciclo y bandera activa.")
+                    print("!!! Reiniciando el sistema en 3 segundos...")
+                    time.sleep(3)
+                    machine.reset()
+
                 if current_state:
+                    time_factor = runtime_config.get_speed()
+                    on_time = 3 * 3600 // time_factor
                     time_elapsed = time.time() - cycle_start_time
                     mid_cycle_time = on_time / 2
-                    
-                    # Si estamos cerca del punto medio del ciclo y no hemos leído recientemente
-                    if (mid_cycle_time - 60) <= time_elapsed <= (mid_cycle_time + 60):
-                        # Verificar si ya hicimos una lectura en este ciclo
-                        if time.time() - self.last_reading_time > on_time / 2:
-                            # Leer sensores
-                            readings = self.reader.read_sensors(custom_settling_time=10)
-                            self.last_reading_time = time.time()
-                            
-                            # Llamar a callbacks
-                            for callback in self.callbacks:
-                                try:
-                                    callback(readings)
-                                except Exception as e:
-                                    print(f"Error en callback: {e}")
-                
-                # Actualizar último estado conocido
+
+                    read_window_start = mid_cycle_time - 120 
+                    read_window_end = mid_cycle_time + 120
+                    min_time_since_last_read = on_time / 3
+
+                    if read_window_start <= time_elapsed <= read_window_end and \
+                       (time.time() - self.last_reading_time > min_time_since_last_read):
+
+                        print(f"Punto medio del ciclo ON alcanzado (t={int(time_elapsed)}s). Realizando lectura de sensores...")
+                        readings = self.reader.read_sensors(custom_settling_time=10)
+                        self.last_reading_time = time.time()
+                        print(f"Lectura completada: {readings}")
+
+                        for callback in self.callbacks:
+                            try:
+                                callback(readings)
+                            except Exception as e:
+                                print(f"Error en callback del scheduler: {e}")
+                        gc.collect()
+
                 last_state = current_state
-                
-                # Esperar antes de la siguiente verificación
-                time.sleep(30)  # Verificar cada 30 segundos es suficiente
-                
+                time.sleep(10)
+
             except Exception as e:
-                print(f"Error en tarea de monitoreo: {e}")
-                time.sleep(60)  # Esperar más tiempo si hay error
-    
+                print(f"Error grave en _monitoring_task: {e}")
+                time.sleep(60)
+
+        print("Tarea de monitoreo de sensores finalizada.")
+
     def read_now(self):
+        print("Realizando lectura inmediata de sensores...")
         readings = self.reader.read_sensors()
-        
+        print(f"Lectura inmediata: {readings}")
         for callback in self.callbacks:
             try:
                 callback(readings)
             except Exception as e:
-                print(f"Error en callback: {e}")
-                
+                print(f"Error en callback (read_now): {e}")
+        gc.collect()
         return readings
