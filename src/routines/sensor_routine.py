@@ -17,6 +17,20 @@ class SensorRoutine:
             pass
         
         self.scheduler.add_callback(self._save_data_callback)
+
+        self._retry_flag = False
+
+    def mark_retry_flag(self):
+        self._retry_flag = True
+
+    def should_retry(self):
+        return self._retry_flag
+
+    def retry_pending_data_if_needed(self):
+        if self._retry_flag:
+            print("Retrying to send pending data...")
+            self.retry_pending_data()
+            self._retry_flag = False
         
     def start(self):
         print("Starting sensor routine...")
@@ -31,7 +45,8 @@ class SensorRoutine:
         return self.scheduler.read_now()
     
     def _send_via_http(self, readings):
-       try:
+        try:
+            gc.collect()
             url = "http://192.168.4.1/sensors/data"
             headers = {"Content-Type": "application/json"}
             payload = {
@@ -40,16 +55,18 @@ class SensorRoutine:
                 "sensors": readings.get("data", readings.get("sensors", {}))
             }
             response = urequests.post(url, json=payload, headers=headers)
-            if response.status_code == 200:
+            status = response.status_code
+            response.close()
+            gc.collect()
+            if status == 200:
                 print("Data sent via HTTP successfully")
-                response.close()
                 return True
             else:
-                print("HTTP POST failed with status:", response.status_code)
-                response.close()
+                print("HTTP POST failed with status:", status)
                 return False
         except Exception as e:
             print("Error sending via HTTP:", e)
+            gc.collect()
             return False
 
     def _save_data_callback(self, readings):

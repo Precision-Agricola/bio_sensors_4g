@@ -14,12 +14,12 @@ def connect_wifi(ssid, password):
     if not wlan.isconnected():
         print("Conectando a WiFi...")
         wlan.connect(ssid, password)
-        timeout = time.time() + 10
+        timeout = time.time() + 15 
         while not wlan.isconnected():
             if time.time() > timeout:
                 print("Error: Timeout WiFi")
                 return False
-            time.sleep(0.5)
+            time.sleep(1)
     print(f"Conectado a {ssid} con IP: {wlan.ifconfig()[0]}")
     return True
 
