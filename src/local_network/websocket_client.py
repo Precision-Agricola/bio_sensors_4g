@@ -38,7 +38,6 @@ class WebSocketClient:
         self.sock.write(masked)
 
     async def async_recv(self):
-        """Non-blocking receive using polling."""
         while True:
             first_two = self.sock.read(2)
             if first_two and len(first_two) == 2:

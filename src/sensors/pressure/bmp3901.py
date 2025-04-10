@@ -1,4 +1,3 @@
-"""Pressure sensor i2c 3 in one"""
 from sensors.base import Sensor, register_sensor
 from machine import Pin, SoftI2C
 from utils.micropython_bmpxxx.bmpxxx import BMP390

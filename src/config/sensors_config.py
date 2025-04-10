@@ -2,15 +2,6 @@ import json
 from sensors.base import sensor_registry
 
 def load_sensor_config(config_file='config/sensors.json'):
-    """Loads sensor configurations from a JSON file and instantiates sensor objects.
-        Args:
-            config_file (str, optional): The path to the JSON configuration file.
-                Defaults to 'config/sensors.json'.
-        Returns:
-            list: A list of instantiated sensor objects based on the configuration file.
-                  Returns an empty list if there is an error loading the configuration
-                  or if no valid sensors are found.
-    """
     try:
         with open(config_file) as f:
             config = json.load(f)

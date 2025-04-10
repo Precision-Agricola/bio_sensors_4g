@@ -28,7 +28,6 @@ class SensorRelay:
 
 class LoadRelay:
     def __init__(self, relay_pins=(0, 27)):
-        """Initialize the load relay pins"""
         self.relays = [Pin(pin, Pin.OUT, value=0) for pin in relay_pins]
     
     def turn_on(self, relay_index=None):

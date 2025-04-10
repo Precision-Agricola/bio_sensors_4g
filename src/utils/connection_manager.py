@@ -11,7 +11,6 @@ class ConnectionManager:
         self.max_retries = 5
 
     async def connect(self):
-        """Improved connection with backoff and sanity checks"""
         while True:
             try:
                 if self.retry_count >= self.max_retries:
@@ -32,7 +31,6 @@ class ConnectionManager:
                 await asyncio.sleep(2 + self.retry_count*2)
 
     async def run(self):
-        """Improved message handling with async safeguards"""
         while True:
             if not self.connected:
                 await self.connect()
@@ -55,7 +53,6 @@ class ConnectionManager:
                 await self.handle_disconnect()
 
     async def handle_disconnect(self):
-        """Centralized disconnect handling"""
         self.connected = False
         try:
             if self.ws:
@@ -67,7 +64,6 @@ class ConnectionManager:
             await asyncio.sleep(1)
 
     async def send(self, message):
-        """Safe send with reconnect attempt"""
         if not self.connected:
             await self.connect()
             

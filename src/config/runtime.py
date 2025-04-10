@@ -3,17 +3,6 @@ AERATOR_PIN_B = 27
 BOOT_SELECTOR_PIN = 25
 TEST_SELECTOR_PIN = 26
 
-_mqtt_enabled = True 
-
-def get_mqtt_enabled():
-    """Returns if MQTT is enabled"""
-    return _mqtt_enabled
-
-def set_mqtt_enabled(enabled):
-    """Set MQTT enabled status"""
-    global _mqtt_enabled
-    _mqtt_enabled = bool(enabled)
-
 _runtime_state = {
     "CURRENT_MODE": "EMERGENCY",
     "CURRENT_SPEED": 1

@@ -1,11 +1,9 @@
-"""WiFi Manager"""
 # src/local_network/wifi.py
 import network
 import time
 import os
 
 def connect_wifi(ssid="PrecisionAgricola", password="ag2025pass", timeout=10):
-    """Connect to WiFi network in station mode."""
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     
@@ -28,28 +26,3 @@ def connect_wifi(ssid="PrecisionAgricola", password="ag2025pass", timeout=10):
     print(f"Connected to {ssid}")
     print(f"IP: {wlan.ifconfig()[0]}")
     return True
-
-def save_to_backup(data):
-    """Save data to backup file."""
-    try:
-        # Ensure backup directory exists
-        try:
-            os.mkdir("data")
-        except OSError:
-            pass
-            
-        try:
-            os.mkdir("data/backup")
-        except OSError:
-            pass
-            
-        # Create backup filename with timestamp
-        filename = f"data/backup/data_{int(time.time())}.json"
-        
-        # Write data to file
-        with open(filename, "w") as f:
-            f.write(data)
-            
-        print(f"Data saved to backup: {filename}")
-    except Exception as e:
-        print(f"Error saving backup: {e}")

@@ -31,12 +31,7 @@ class SensorRoutine:
         return self.scheduler.read_now()
     
     def _send_via_http(self, readings):
-        """
-        Send sensor readings to the local server endpoint that posts to AWS IoT Core.
-        The server endpoint is expected to be:
-            POST http://192.168.4.1/sensors/data
-        """
-        try:
+       try:
             url = "http://192.168.4.1/sensors/data"
             headers = {"Content-Type": "application/json"}
             payload = {
