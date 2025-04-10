@@ -16,7 +16,7 @@ def main():
 
     elif mode == "DEMO MODE":
         from routines.sensor_routine import SensorRoutine
-        from local_network.websocket_client import websocket_client 
+        from local_network.websocket_client import websocket_client
         import _thread
 
         sensor_routine = SensorRoutine()
@@ -27,22 +27,16 @@ def main():
         asyncio.run(run_async_mode(sensor_routine, websocket_client))
 
     elif mode == "WORKING MODE":
-        import uos, esp
         from routines.sensor_routine import SensorRoutine
         from local_network.websocket_client import websocket_client
         import _thread
 
-        uos.dupterm(None, 0)
-        esp.osdebug(None)
-
         sensor_routine = SensorRoutine()
         sensor_routine.start()
         _thread.start_new_thread(turn_on_aerators, ())
-
+        
         # Ejecuta WebSocket + retry loop
         asyncio.run(run_async_mode(sensor_routine, websocket_client))
-
-        print(f"Mode '{mode}' - Starting basic operation")
 
 if __name__ == "__main__":
     main()
