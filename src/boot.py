@@ -23,36 +23,13 @@ def connect_wifi(ssid, password):
     print(f"Conectado a {ssid} con IP: {wlan.ifconfig()[0]}")
     return True
 
-print(r"""
-       **
-      *****
-    *********
-   ************
-  **************    (((((((((#
-  ***********   (((((((((((###
- **********  (((((((((((######
- ********   ((((((((((#######
-  ******  ((((((((((#######
-   *****  (((((((##########
-    ***  ((((((##########
-      *  ((((##########
-         (########
-""")
-
-# WiFi al arranque
 connect_wifi("PrecisionAgricola", "ag2025pass")
 
 def set_system_mode(mode, time_factor=1):
     config.set_mode(mode)
     config.set_speed(time_factor)
-    print(f"""
-╔═══════════════════════════════════════════════╗
-║        PRECISIÓN AGRÍCOLA - BIO-IOT v1.2      ║
-╠═══════════════════════════════════════════════╣
-║ Mode: {mode:<18} Time Factor: {time_factor:>3}x    ║
-║ SW1: {DIP_SW1.value()} | SW2: {DIP_SW2.value()}                                ║
-╚═══════════════════════════════════════════════╝
-""")
+    print(f" Mode: {mode:<18} Time Factor: {time_factor:>3}")
+    print(f"SW1: {DIP_SW1.value()} | SW2: {DIP_SW2.value()}") 
 
 def emergency_procedure(time_factor=1):
     wdt = WDT(timeout=8000)
