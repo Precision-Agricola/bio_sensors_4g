@@ -7,10 +7,8 @@ import struct
 
 @register_sensor("RS485_SENSOR", "MODBUS")
 class RS485Sensor(Sensor):
-    def __init__(self, name, model, protocol, signal=None, bus_num=None, **kwargs):
-        super().__init__(name, model, protocol, signal, bus_num=bus_num, **kwargs)   
-
-
+    def __init__(self, name, model, protocol, vin, signal, **kwargs):
+        super().__init__(name, model, protocol, vin, signal, **kwargs)
 
     def _init_hardware(self):
         self.uart = UART(2, baudrate=9600, tx=1, rx=3)

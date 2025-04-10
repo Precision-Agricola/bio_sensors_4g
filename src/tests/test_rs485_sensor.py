@@ -14,7 +14,11 @@ def log_to_file(data, file_path="rs485_log.txt"):
 sensor = RS485Sensor(
     name="RS485 Sensor",
     model="RS485_SENSOR",
-    protocol="MODBUS"
+    protocol="MODBUS",
+    vin=3.3,
+    signal=1,
+    bus_num=2,
+    address=1
 )
 
 # Inicializar hardware
