@@ -9,6 +9,11 @@ import struct
 class RS485Sensor(Sensor):
     def __init__(self, name, model, protocol, vin, signal, **kwargs):
         super().__init__(name, model, protocol, vin, signal, **kwargs)
+        self.reading_names = []
+        self.uart = None
+        self.de_re = None
+        self.commands = []
+        self._initialized = False
 
     def _init_hardware(self):
         self.uart = UART(2, baudrate=9600, tx=1, rx=3)
@@ -17,6 +22,10 @@ class RS485Sensor(Sensor):
             b'\x01\x03\x04\x0a\x00\x02\xE5\x39',
             b'\x01\x03\x04\x0c\x00\x02\x05\x38'
         ]
+        self.reading_names = [
+            'nivel',
+            'temperatura_liquido'
+            ]
         self._initialized = True
 
     def _send_rs485(self, data):
@@ -37,8 +46,12 @@ class RS485Sensor(Sensor):
 
     def _read_implementation(self):
         readings = {}
-        for i, cmd in enumerate(self.commands, 1):
-            response = self._send_rs485(cmd)
-            val = self._decode_response(response)
-            readings[f"cmd{i}"] = val
-        return readings
+        for i, cmd in enumerate(self.commands):
+            if i < len(self.reading_names):
+                key_name = self.reading_names[i]
+                response = self._send_rs485(cmd)
+                val = self._decode_response(response)
+                readings[key_name] = val
+            else:
+                pass
+        return readings 
