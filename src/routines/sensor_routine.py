@@ -124,5 +124,4 @@ class SensorRoutine:
 
     # Add this method to allow manual retries
     def retry_pending_data(self):
-        print("Retrying to send pending data...")
         self._process_pending_data()

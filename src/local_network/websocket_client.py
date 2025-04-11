@@ -244,7 +244,7 @@ async def websocket_client(sensor_routine=None):
             while True:
                 msg = await ws.async_recv()
                 if msg is None:
-                    raise OSError("WebSocket connection closed or read error")
+                    raise OSError("WebSocket connection closed or read error") # < -- Aquí se daba el error connectionerror
 
                 print(f"WS Recibido: {msg}")
                 if isinstance(msg, str) and msg.strip().upper() == "PING":
