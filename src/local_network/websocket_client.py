@@ -1,13 +1,14 @@
 import usocket
 import ubinascii
 import urandom
+import uselect
 import struct
 import re
 import uasyncio as asyncio
 import config.runtime as runtime_config
 import time
 from config.secrets import WIFI_CONFIG
-from local_network.wifi_manager import connect_wifi, is_connected
+from local_network.wifi_manager import connect_wifi
 
 MAX_WIFI_ATTEMPTS = 5
 WIFI_RETRY_DELAY_S = 5
@@ -20,6 +21,9 @@ class WebSocketClient:
     def __init__(self, sock):
         self.sock = sock
         self.open = True
+        self.poller = uselect.poll()
+        self.poller.register(self.sock, uselect.POLLIN)
+        self._recv_buffer = b''
 
     def send(self, message):
         if isinstance(message, str):
@@ -43,75 +47,159 @@ class WebSocketClient:
         masked = bytearray(message[i] ^ mask[i % 4] for i in range(length))
         self.sock.write(header)
         self.sock.write(masked)
+    
+    async def _read_exact(self, n_bytes):
+        while len(self._recv_buffer) < n_bytes:
+            try:
+                res = self.poller.poll(1)
+                if res:
+                    chunk = self.sock.read(n_bytes - len(self._recv_buffer))
+                    if chunk is None or chunk == b'':
+                        print("Connection closed while reading.")
+                        self.open = False
+                        return None
+                    self._recv_buffer += chunk
+                else:
+                    await asyncio.sleep(0.01)
+            except OSError as e:
+                print(f"OSError during read: {e}")
+                if e.args[0] == 113:
+                    print("Detailed log: ECONNABORTED (113) occurred during socket read.")
+                self.open = False
+                return None
+            except Exception as e:
+                print(f"Unexpected error during read: {e}")
+                self.open = False
+                return None
+
+        data = self._recv_buffer[:n_bytes]
+        self._recv_buffer = self._recv_buffer[n_bytes:]
+        return data
 
     async def async_recv(self):
-        while True:
-            first_two = self.sock.read(2)
-            if first_two and len(first_two) == 2:
-                b1, b2 = struct.unpack("!BB", first_two)
-                opcode = b1 & 0x0F
-                payload_len = b2 & 0x7F
-                if payload_len == 126:
-                    ext = self.sock.read(2)
-                    payload_len = struct.unpack("!H", ext)[0]
-                elif payload_len == 127:
-                    ext = self.sock.read(8)
-                    payload_len = struct.unpack("!Q", ext)[0]
-                data = self.sock.read(payload_len)
-                if opcode == 1:
-                    return data.decode("utf-8")
-                else:
-                    return data
-            await asyncio.sleep(0.1)
+
+        if not self.open:
+            return None
+
+        try:
+            first_two = await self._read_exact(2)
+            if first_two is None: return None
+            b1, b2 = struct.unpack("!BB", first_two)
+
+            opcode = b1 & 0x0F
+            fin = b1 & 0x80
+            if opcode == 0x8: # CLOSE Frame
+                 print("Received WebSocket CLOSE frame.")
+                 self.open = False
+                 return None
+
+            payload_len = b2 & 0x7F
+            is_masked = b2 & 0x80
+
+            if payload_len == 126:
+                ext_len_bytes = await self._read_exact(2)
+                if ext_len_bytes is None: return None
+                payload_len = struct.unpack("!H", ext_len_bytes)[0]
+            elif payload_len == 127:
+                ext_len_bytes = await self._read_exact(8)
+                if ext_len_bytes is None: return None
+                payload_len = struct.unpack("!Q", ext_len_bytes)[0]
+
+            if is_masked:
+                print("Warning: Received masked frame from server (unexpected).")
+                mask = await self._read_exact(4)
+                if mask is None: return None
+                payload = await self._read_exact(payload_len)
+                if payload is None: return None
+                # Desenmascarar (¡código no probado!)
+                unmasked_payload = bytearray(payload[i] ^ mask[i % 4] for i in range(payload_len))
+                payload = bytes(unmasked_payload)
+            else:
+                payload = await self._read_exact(payload_len)
+                if payload is None: return None
+
+            if opcode == 1:
+                try:
+                    return payload.decode("utf-8")
+                except UnicodeError:
+                    print("Error decoding UTF-8 payload.")
+                    return payload
+            else:
+                return payload
+
+        except Exception as e:
+            print(f"Exception in async_recv: {e}")
+            self.open = False
+            return None
 
     def close(self):
+        if self.open:
+            try:
+                 self.poller.unregister(self.sock)
+            except Exception as e:
+                 print(f"Error unregistering socket from poller: {e}")
         self.open = False
         try:
             self.sock.close()
+            print("Socket closed.")
         except Exception as e:
-            print("Error closing socket:", e)
+            print(f"Error closing socket: {e}")
 
-def connect_ws(uri):
+def connect_ws(uri, timeout_sec=10):
     m = re.match(r"ws://([^:/]+)(?::(\d+))?(/.*)?", uri)
     if not m:
-        raise Exception("Invalid URI")
+        raise ValueError("Invalid WebSocket URI")
     hostname = m.group(1)
     port = int(m.group(2)) if m.group(2) else 80
     path = m.group(3) if m.group(3) else "/"
-    sock = usocket.socket()
-    addr = usocket.getaddrinfo(hostname, port)[0][-1]
-    sock.connect(addr)
-    sock.setblocking(False)  # switch to non-blocking mode
-    # Generate a random Sec-WebSocket-Key
-    key_bytes = bytearray([urandom.getrandbits(8) for _ in range(16)])
-    key = ubinascii.b2a_base64(key_bytes).strip().decode("utf-8")
-    handshake = (
-        "GET {} HTTP/1.1\r\n"
-        "Host: {}:{}\r\n"
-        "Upgrade: websocket\r\n"
-        "Connection: Upgrade\r\n"
-        "Sec-WebSocket-Key: {}\r\n"
-        "Sec-WebSocket-Version: 13\r\n"
-        "\r\n"
-    ).format(path, hostname, port, key)
-    sock.write(handshake.encode("utf-8"))
-    # Wait for handshake response
-    while True:
-        line = sock.readline()
-        if line and line.startswith(b"HTTP/1.1 101"):
-            break
-        asyncio.sleep(0.1)
-    while True:
-        line = sock.readline()
-        if line == b"\r\n":
-            break
-    return WebSocketClient(sock)
+
+    sock = None
+    try:
+        sock = usocket.socket()
+        sock.settimeout(timeout_sec)
+        addr_info = usocket.getaddrinfo(hostname, port)
+        if not addr_info:
+            raise OSError(f"Cannot resolve address for {hostname}")
+        addr = addr_info[0][-1]
+        sock.connect(addr)
+        key_bytes = bytearray([urandom.getrandbits(8) for _ in range(16)])
+        key = ubinascii.b2a_base64(key_bytes).strip().decode("utf-8")
+        handshake = (
+            "GET {} HTTP/1.1\r\n"
+            "Host: {}:{}\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            "Sec-WebSocket-Key: {}\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "\r\n"
+        ).format(path, hostname, port, key)
+
+        sock.write(handshake.encode("utf-8"))
+        status_line = sock.readline() # Lee hasta \n
+        if not status_line or not status_line.startswith(b"HTTP/1.1 101"):
+           raise OSError("WebSocket connection closed or read error") 
+
+        while True:
+            header_line = sock.readline()
+            if not header_line: # Timeout o cierre inesperado
+                raise OSError("WebSocket connection closed or read error")
+            if header_line == b"\r\n":
+                break
+
+        sock.setblocking(False)
+        return WebSocketClient(sock)
+
+    except Exception as e:
+        if sock:
+            try:
+                sock.close()
+            except Exception:
+                pass
+        raise e
+
 
 async def websocket_client(sensor_routine=None):
-    """
-    Gestiona la conexión WebSocket, incluyendo la conexión WiFi robusta
-    y la solicitud de reinicio coordinado en caso de fallo persistente.
-    """
+
     wifi_connection_attempts = 0
     last_wifi_reset_attempt = 0
 
@@ -130,9 +218,8 @@ async def websocket_client(sensor_routine=None):
             if not connect_wifi(reset_interface=should_reset_iface):
                 wifi_connection_attempts += 1
                 print(f"Fallo al conectar WiFi (Intento {wifi_connection_attempts}/{MAX_WIFI_ATTEMPTS}).")
-
                 if should_reset_iface:
-                     last_wifi_reset_attempt = time.time()
+                    last_wifi_reset_attempt = time.time()
 
                 if wifi_connection_attempts >= MAX_WIFI_ATTEMPTS:
                     print(f"Se alcanzó el máximo de {MAX_WIFI_ATTEMPTS} intentos fallidos de WiFi.")
@@ -145,8 +232,7 @@ async def websocket_client(sensor_routine=None):
                 continue
 
             print("WiFi conectado exitosamente.")
-            if wifi_connection_attempts > 0:
-                 print(f"Se necesitaron {wifi_connection_attempts} intentos para conectar WiFi.")
+            if wifi_connection_attempts > 0: print(f"Needed {wifi_connection_attempts} WiFi attempts.")
             wifi_connection_attempts = 0
             runtime_config.clear_reboot_request()
             last_wifi_reset_attempt = 0
@@ -167,16 +253,16 @@ async def websocket_client(sensor_routine=None):
                     if sensor_routine:
                         print("Conexión activa, intentando enviar datos pendientes...")
                         sensor_routine.mark_retry_flag()
-                await asyncio.sleep(30)
+                #await asyncio.sleep(30)
 
         except Exception as e:
-            print(f"Error en bucle WebSocket/WiFi: {e}")
+            print(f"Error en ciclo principal WebSocket/WiFi: {e}")
             if ws:
                 try:
-                    print("Cerrando conexión WebSocket...")
+                    print("Cerrando conexión WebSocket en bloque except...")
                     ws.close()
                 except Exception as close_err:
-                    print(f"Error al cerrar WebSocket: {close_err}")
+                    print(f"Error al cerrar WebSocket en except: {close_err}")
             print(f"Reintentando ciclo completo en {WS_RECONNECT_DELAY_S} segundos...")
             await asyncio.sleep(WS_RECONNECT_DELAY_S)
 
