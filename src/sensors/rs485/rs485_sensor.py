@@ -23,8 +23,8 @@ class RS485Sensor(Sensor):
             b'\x01\x03\x04\x0c\x00\x02\x05\x38'
         ]
         self.reading_names = [
-            'nivel',
-            'temperatura_liquido'
+            'liquid_level',
+            'liquid_temperature'
             ]
         self._initialized = True
 
