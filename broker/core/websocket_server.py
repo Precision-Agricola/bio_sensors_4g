@@ -11,7 +11,7 @@ from core.aws_forwarding import send_to_aws
 # Clave: client_id, Valor: diccionario con info del cliente
 clients = {}
 
-PING_INTERVAL_S = 15
+PING_INTERVAL_S = 25
 CLIENT_TIMEOUT_S = PING_INTERVAL_S * 3 
 
 # Configure watchdog with maximum (8 seconds)
@@ -22,6 +22,7 @@ async def send_to_aws_background_wrapper(payload):
     try:
         success = send_to_aws(payload)
         print(f"Background AWS send result for {payload.get('device_id')}: {'Success' if success else 'Failure'}")
+        print(f"Payload: {payload}")
     except Exception as e:
         print(f"Exception in background send_to_aws task: {e}")
         import sys
