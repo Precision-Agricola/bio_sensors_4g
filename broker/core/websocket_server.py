@@ -11,7 +11,7 @@ from core.aws_forwarding import send_to_aws
 # Clave: client_id, Valor: diccionario con info del cliente
 clients = {}
 
-PING_INTERVAL_S = 30
+PING_INTERVAL_S = 15
 CLIENT_TIMEOUT_S = PING_INTERVAL_S * 3 
 
 # Configure watchdog with maximum (8 seconds)
