@@ -2,6 +2,8 @@ import uasyncio as asyncio
 import config.runtime as config
 from routines.aerator_3hr import turn_on_aerators
 from machine import WDT
+from utils.logger import log_message
+from utils.init import system_setup
 
 wdt = WDT(timeout=1000 * 60 * 5)
 
@@ -19,11 +21,12 @@ async def run_async_mode(sensor_routine, ws_client):
 
 def main():
     mode = config.get_mode()
-    print(f"BIO-IOT v1.2 - Mode: {mode}")
+    system_setup()
+    log_message(f"BIO-IOT v1.2 - Mode: {mode}")
     wdt.feed()
 
     if mode == "PROGRAM MODE":
-        print("Program mode active - Development interfaces enabled")
+        log_message("Program mode active - Development interfaces enabled")
 
     elif mode == "DEMO MODE":
         from routines.sensor_routine import SensorRoutine
