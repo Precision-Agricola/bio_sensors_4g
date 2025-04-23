@@ -16,27 +16,40 @@ class BMP3901Sensor(Sensor):
     def _init_hardware(self):
         super()._init_hardware()
         self._initialized = True
-    
+
     def _read_implementation(self):
         try:
             i2c = SoftI2C(
                 scl=Pin(I2C_SCL_PIN),
                 sda=Pin(I2C_SDA_PIN)
             )
-            
+
             found_addresses = i2c.scan()
-            if self.address not in found_addresses:
+            print(f"I2C scan found devices at: {[hex(addr) for addr in found_addresses]}")
+
+            bmp_addresses = [0x76, 0x77]
+            active_address = None
+
+            for addr in bmp_addresses:
+                if addr in found_addresses:
+                    active_address = addr
+                    print(f"Using BMP390 at address: 0x{addr:02x}")
+                    break
+
+            if active_address is None:
+                print("BMP390 not found at either 0x76 or 0x77")
                 return None
-            
-            bmp = BMP390(i2c=i2c, address=self.address)
+            bmp = BMP390(i2c=i2c, address=active_address)
+
             pressure = bmp.pressure
             temperature = bmp.temperature
             altitude = bmp.altitude
-            
+
             return {
                 "pressure": pressure,
                 "temperature": temperature,
                 "altitude": altitude
             }
         except Exception as e:
+            print(f"BMP390 read error: {e}")
             return None
