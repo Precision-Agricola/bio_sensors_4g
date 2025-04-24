@@ -2,6 +2,8 @@ import json
 import time
 from sensors.base import sensor_registry
 from system.control.relays import SensorRelay
+from utils.logger import log_message
+
 
 # All sensors registering
 import sensors.amonia.sen0567
@@ -37,11 +39,11 @@ class SensorReader:
                         sensor = sensor_class(**config)
                         self.sensors.append(sensor)
                     else:
-                        print(f"Registros disponibles: {list(sensor_registry.keys())}")
+                        log_message(f"Registros disponibles: {list(sensor_registry.keys())}")
                 except Exception as e:
-                    print(f"Error al crear sensor {config.get('name', 'desconocido')}: {str(e)}")
+                    log_message(f"Error al crear sensor {config.get('name', 'desconocido')}: {str(e)}")
         except Exception as e:
-            print(f"Error al cargar sensores: {str(e)}")
+            log_message(f"Error al cargar sensores: {str(e)}")
     
     def read_sensors(self, relay='A', custom_settling_time=None):
         settling = custom_settling_time if custom_settling_time is not None else self.settling_time
@@ -52,14 +54,14 @@ class SensorReader:
         for sensor in self.sensors:
             try:
                 if not getattr(sensor, '_initialized', True):
-                    print(f"Sensor {sensor.name} no está inicializado, omitiendo")
+                    log_message(f"Sensor {sensor.name} no está inicializado, omitiendo")
                     continue
                 reading = sensor.read()
                 if reading is not None:
                     readings[sensor.name] = reading
                     successful_sensors.append(sensor.name)
             except Exception as e:
-                print(f"Error al leer sensor {sensor.name}: {str(e)}")
+                log_message(f"Error al leer sensor {sensor.name}: {str(e)}")
         self.sensor_relay.deactivate_all()
         
         self.last_readings = {

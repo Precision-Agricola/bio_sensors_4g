@@ -1,3 +1,5 @@
+from utils.logger import log_message
+
 AERATOR_PIN_A = 12
 AERATOR_PIN_B = 27
 BOOT_SELECTOR_PIN = 25
@@ -25,13 +27,13 @@ def set_speed(speed):
 # --- Funciones para gestionar la solicitud de reinicio (nuevas) ---
 def request_reboot():
     """Marca la bandera para solicitar un reinicio coordinado."""
-    print("INFO: Reboot request flag set.")
+    log_message("INFO: Reboot request flag set.")
     _runtime_state["REBOOT_REQUESTED"] = True
 
 def clear_reboot_request():
     """Limpia la bandera de solicitud de reinicio (ej. si WiFi se recupera)."""
     if _runtime_state["REBOOT_REQUESTED"]:
-        print("INFO: Clearing reboot request flag.")
+        log_message("INFO: Clearing reboot request flag.")
         _runtime_state["REBOOT_REQUESTED"] = False
 
 def is_reboot_requested():

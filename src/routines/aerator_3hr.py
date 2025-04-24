@@ -1,19 +1,21 @@
 from system.control.relays import LoadRelay
 import config.runtime as runtime_config
 import time
+from utils.logger import log_message
+
 
 def turn_on_aerators(wdt=None):
-    print("Initializing aerator control routine...")
+    log_message("Initializing aerator control routine...")
     time_factor = runtime_config.get_speed()
     aerator_relays = LoadRelay()
     on_time = 3 * 3600 // time_factor
     off_time = 3 * 3600 // time_factor
 
-    print(f"Starting aerator cycle: {on_time}s ON, {off_time}s OFF")
+    log_message(f"Starting aerator cycle: {on_time}s ON, {off_time}s OFF")
 
     try:
         while True:
-            print("Aerators ON")
+            log_message("Aerators ON")
             aerator_relays.turn_on()
 
             start_time = time.time()
@@ -22,7 +24,7 @@ def turn_on_aerators(wdt=None):
                     wdt.feed()
                 time.sleep(30)
 
-            print("Aerators OFF")
+            log_message("Aerators OFF")
             aerator_relays.turn_off()
 
             start_time = time.time()
@@ -32,5 +34,5 @@ def turn_on_aerators(wdt=None):
                 time.sleep(30)
 
     except Exception as e:
-        print(f"Error in aerator routine: {e}")
+        log_message(f"Error in aerator routine: {e}")
         aerator_relays.turn_off()

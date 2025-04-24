@@ -4,6 +4,8 @@ import time
 import network
 import json
 import struct
+from utils.logger import log_message
+
 
 # Initialize pins
 boot_pin = Pin(25, Pin.IN, Pin.PULL_DOWN)
@@ -41,7 +43,7 @@ def decode_modbus_response(response):
         float_value = ieee754_to_float(relevant_bytes)
         return float_value
     except Exception as e:
-        print(f"Error decoding float: {e}")
+        log_message(f"Error decoding float: {e}")
         return None
 
 def blink_working_relay(count=1, duration=1):
@@ -65,7 +67,7 @@ def setup_wifi():
     ap.config(essid="PrecisionAg-RS485", password="bioiot2025")
     while not ap.active():
         pass
-    print("WiFi AP active:", ap.ifconfig())
+    log_message("WiFi AP active:", ap.ifconfig())
     return ap
 
 # Simple HTTP server for logs
@@ -136,7 +138,7 @@ def start_http_server():
 </body>
 </html>''')
     except Exception as e:
-        print(f"Error creating HTML file: {e}")
+        log_message(f"Error creating HTML file: {e}")
     
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(('', 80))
@@ -156,7 +158,7 @@ def main():
         uart = UART(2, baudrate=9600, tx=1, rx=3)  # Using recommended GPIO pins for UART2
         blink_working_relay(2)  # Indicate successful UART setup
     except Exception as e:
-        print(f"UART setup failed: {e}")
+        log_message(f"UART setup failed: {e}")
         blink_fail_relay()
         return
     
@@ -165,7 +167,7 @@ def main():
     
     # Start HTTP server
     http_server = start_http_server()
-    print("HTTP server started")
+    log_message("HTTP server started")
     
     # RS485 test commands (Modbus read holding registers)
     command_1 = b'\x01\x03\x04\x0a\x00\x02\xE5\x39'  # Original command
@@ -291,7 +293,7 @@ def main():
             time.sleep(5)
             
         except Exception as e:
-            print(f"Error in main loop: {e}")
+            log_message(f"Error in main loop: {e}")
             blink_fail_relay()
             time.sleep(10)
 

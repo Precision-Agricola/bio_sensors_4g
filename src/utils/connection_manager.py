@@ -1,6 +1,8 @@
 import uasyncio as asyncio
 import time
 from local_network.ws_client import connect_ws
+from utils.logger import log_message
+
 
 class ConnectionManager:
     def __init__(self, uri="ws://192.168.4.1/ws"):
@@ -14,18 +16,18 @@ class ConnectionManager:
         while True:
             try:
                 if self.retry_count >= self.max_retries:
-                    print("Max retries reached. Cooling down...")
+                    log_message("Max retries reached. Cooling down...")
                     await asyncio.sleep(30)
                     self.retry_count = 0
 
-                print("ConnectionManager: Attempting connection to", self.uri)
+                log_message("ConnectionManager: Attempting connection to", self.uri)
                 self.ws = connect_ws(self.uri, timeout=10)
                 self.connected = True
                 self.retry_count = 0
-                print("ConnectionManager: Connected")
+                log_message("ConnectionManager: Connected")
                 return
             except Exception as e:
-                print(f"ConnectionManager: Connection error ({self.retry_count}/{self.max_retries}):", e)
+                log_message(f"ConnectionManager: Connection error ({self.retry_count}/{self.max_retries}):", e)
                 self.connected = False
                 self.retry_count += 1
                 await asyncio.sleep(2 + self.retry_count*2)
@@ -40,16 +42,16 @@ class ConnectionManager:
                 if msg is None:
                     raise Exception("Connection closed by server")
                     
-                print("Received:", msg)
+                log_message("Received:", msg)
                 if msg.strip() == "HEARTBEAT":
                     await self.send("PONG")
                 await asyncio.sleep(0.1)
                 
             except asyncio.TimeoutError:
-                print("No data received, sending keepalive")
+                log_message("No data received, sending keepalive")
                 await self.send("PING")
             except Exception as e:
-                print("Connection error:", e)
+                log_message("Connection error:", e)
                 await self.handle_disconnect()
 
     async def handle_disconnect(self):
@@ -58,7 +60,7 @@ class ConnectionManager:
             if self.ws:
                 self.ws.close()
         except Exception as e:
-            print("Cleanup error:", e)
+            log_message("Cleanup error:", e)
         finally:
             self.ws = None
             await asyncio.sleep(1)
@@ -70,7 +72,7 @@ class ConnectionManager:
         if self.connected:
             try:
                 self.ws.send(message)
-                print("Sent:", message)
+                log_message("Sent:", message)
             except Exception as e:
-                print("Send error:", e)
+                log_message("Send error:", e)
                 await self.handle_disconnect()
