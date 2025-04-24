@@ -2,10 +2,12 @@
 
 from machine import Pin
 import calendar.ds1302 as ds1302
+from utils.logger import log_message
+
 try:
     from config.config import RTC_CLK_PIN, RTC_DIO_PIN, RTC_CS_PIN
 except ImportError:
-    print("WARN: No se encontraron constantes RTC_..._PIN en config.config, usando defaults 16, 21, 23.")
+    log_message("WARN: No se encontraron constantes RTC_..._PIN en config.config, usando defaults 16, 21, 23.")
     RTC_CLK_PIN = 16
     RTC_DIO_PIN = 21
     RTC_CS_PIN = 23
@@ -46,7 +48,7 @@ def set_current_time(time_str, config=None):
     weekday = compute_weekday(day, month, year)
     dt = (year, month, day, weekday, hour, minute, 0)
     rtc.date_time(dt)
-    print("RTC set to:", format_datetime((year, month, day, hour, minute, 0)))
+    log_message("RTC set to:", format_datetime((year, month, day, hour, minute, 0)))
 
 # Example usage:
 # from calendar.set_time import set_current_time
