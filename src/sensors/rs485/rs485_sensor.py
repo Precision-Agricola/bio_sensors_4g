@@ -4,6 +4,7 @@ from sensors.base import Sensor, register_sensor
 from machine import UART, Pin
 import time
 import struct
+from utils.logger import log_message
 
 @register_sensor("RS485_SENSOR", "MODBUS")
 class RS485Sensor(Sensor):
@@ -43,10 +44,12 @@ class RS485Sensor(Sensor):
    
     def _get_reliable_reading(self, cmd, param_name, attempts=5, delay_ms=200):
         valid_readings = []
-        
+        raw_values = []
+
         for _ in range(attempts):
             response = self._send_rs485(cmd)
             value = self._decode_response(response)
+            raw_values.append(value)
             
             if value is not None:
                 min_val, max_val = self.valid_ranges[param_name]
@@ -54,7 +57,8 @@ class RS485Sensor(Sensor):
                     valid_readings.append(value)
             
             time.sleep_ms(delay_ms)
-            
+        
+        log_message(f"Rs485 Raw values {raw_values}")
         if valid_readings:
             valid_readings.sort()
             return valid_readings[len(valid_readings) // 2]
