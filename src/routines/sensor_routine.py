@@ -75,17 +75,15 @@ class SensorRoutine:
         if not readings or 'data' not in readings:
             log_message("No data to save")
             return
-            
+
         try:
-            timestamp = readings['timestamp']
-            filename = f"{self.data_folder}/sensors_{int(timestamp)}.json"
+            timestamp_str = readings['timestamp']
+            safe_timestamp_str = timestamp_str.replace(':', '-').replace('T', '_')
+            filename = f"{self.data_folder}/sensors_{safe_timestamp_str}.json"
             with open(filename, 'w') as f:
                 json.dump(readings, f)
             log_message(f"Data saved in {filename}")
-            
-            # Try to send this reading and also process any pending files
             self._process_pending_data()
-            
             gc.collect()
         except Exception as e:
             log_message(f"Error saving data: {e}")
