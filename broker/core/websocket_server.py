@@ -242,6 +242,7 @@ async def test_page(request):
 
 @app.route('/sensors/data', methods=['POST'])
 async def sensors_data(request):
+    wdt.feed()
     try:
         data = request.json
         if not data: raise ValueError("No JSON data provided")
@@ -250,9 +251,9 @@ async def sensors_data(request):
              "timestamp": data.get("timestamp", int(time.time())),
              "data": data.get("sensors", {})
          }
-
+        wdt.feed()
         print("Received sensor data, queuing for AWS send:", payload_for_aws.get('device_id'))
-
+        wdt.feed()
         asyncio.create_task(send_to_aws_background_wrapper(payload_for_aws)) 
         response = {"status": "queued", "message": "Data received and queued for sending to AWS."}
 
