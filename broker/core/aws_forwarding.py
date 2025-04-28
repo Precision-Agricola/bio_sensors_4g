@@ -2,6 +2,7 @@
 import json
 from pico_lte.core import PicoLTE
 from machine import Pin
+import time
 
 # LED for status indication
 led = Pin("LED", Pin.OUT)

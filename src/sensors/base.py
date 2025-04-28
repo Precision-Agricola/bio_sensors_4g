@@ -1,7 +1,9 @@
+from utils.logger import log_message
+
 sensor_registry = {}
 
 def register_sensor(model, protocol):
-    print(f"Registering sensor model: {model}, protocol: {protocol}")
+    log_message(f"Registering sensor model: {model}, protocol: {protocol}")
     def decorator(cls):
         key = (model.strip().upper(), protocol.strip().upper())
         sensor_registry[key] = cls
@@ -29,7 +31,7 @@ class Sensor:
         try:
             return self._read_implementation()
         except Exception as e:
-            print(f"Error reading {self.name}: {str(e)}")
+            log_message(f"Error reading {self.name}: {str(e)}")
             return None
 
     def _read_implementation(self):

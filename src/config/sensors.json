@@ -30,5 +30,14 @@
 		"vin": "3.3",
 		"bus_num": 0,
 		"address": "0x77"
+	},
+	{
+		"name": "RS485 Sensor",
+		"model": "RS485_SENSOR",
+		"protocol": "MODBUS",
+		"vin": 12,
+		"bus_num": 2,
+		"signal": 1,
+		"address": 1
 	}
 ]

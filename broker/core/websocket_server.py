@@ -11,12 +11,22 @@ from core.aws_forwarding import send_to_aws
 # Clave: client_id, Valor: diccionario con info del cliente
 clients = {}
 
-PING_INTERVAL_S = 30
+PING_INTERVAL_S = 25
 CLIENT_TIMEOUT_S = PING_INTERVAL_S * 3 
 
 # Configure watchdog with maximum (8 seconds)
 wdt = machine.WDT(timeout=8000)
 last_heartbeat = time.ticks_ms()  # Global timestamp
+
+async def send_to_aws_background_wrapper(payload):
+    try:
+        success = send_to_aws(payload)
+        print(f"Background AWS send result for {payload.get('device_id')}: {'Success' if success else 'Failure'}")
+        print(f"Payload: {payload}")
+    except Exception as e:
+        print(f"Exception in background send_to_aws task: {e}")
+        import sys
+        sys.print_exception(e)
 
 # --- Watchdog Feeder Task ---
 async def watchdog_feeder():
@@ -232,19 +242,23 @@ async def test_page(request):
 
 @app.route('/sensors/data', methods=['POST'])
 async def sensors_data(request):
+    wdt.feed()
     try:
         data = request.json
         if not data: raise ValueError("No JSON data provided")
-        payload = {
-            "device_id": data.get("device_id", "unknown"),
-            "timestamp": data.get("timestamp", int(time.time())),
-            "data": data.get("sensors", {})
-        }
-        print("Received sensor data:", payload)
-        aws_result = send_to_aws(payload)
-        response = {"status": "success" if aws_result else "failure", "aws_result": aws_result}
+        payload_for_aws = {
+             "device_id": data.get("device_id", "unknown"),
+             "timestamp": data.get("timestamp", int(time.time())),
+             "data": data.get("sensors", {})
+         }
+        wdt.feed()
+        print("Received sensor data, queuing for AWS send:", payload_for_aws.get('device_id'))
+        wdt.feed()
+        asyncio.create_task(send_to_aws_background_wrapper(payload_for_aws)) 
+        response = {"status": "queued", "message": "Data received and queued for sending to AWS."}
+
     except Exception as e:
-        print(f"Error processing /sensors/data: {e}")
+        print(f"Error processing /sensors/data request: {e}")
         response = {"status": "error", "error": str(e)}
     return response
 
@@ -271,10 +285,14 @@ async def aws_synthetic(request):
         "data": payload["sensors"]
     }
     print("Sending synthetic data to AWS:", payload_for_aws)
-    aws_result = send_to_aws(payload_for_aws)
-    return {"synthetic_data": payload, "aws_result": "success" if aws_result else "failure"}
+    try:
+        asyncio.create_task(send_to_aws_background_wrapper(payload_for_aws))
+        response = {"status": "queued", "message": "Synthetic data queued for sending to AWS.", "data_generated": payload}
+    except Exception as e:
+        print(f"Error processing /aws/synthetic request: {e}")
+        response = {"status": "error", "error": str(e)}
+    return response  
 
-  
 async def start_websocket_server():
     print(f"Starting Microdot server on 0.0.0.0:80...")
     try:

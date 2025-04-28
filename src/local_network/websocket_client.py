@@ -9,6 +9,7 @@ import config.runtime as runtime_config
 import time
 from config.secrets import WIFI_CONFIG
 from local_network.wifi_manager import connect_wifi
+from utils.logger import log_message
 
 MAX_WIFI_ATTEMPTS = 5
 WIFI_RETRY_DELAY_S = 5
@@ -55,20 +56,20 @@ class WebSocketClient:
                 if res:
                     chunk = self.sock.read(n_bytes - len(self._recv_buffer))
                     if chunk is None or chunk == b'':
-                        print("Connection closed while reading.")
+                        log_message("Connection closed while reading.")
                         self.open = False
                         return None
                     self._recv_buffer += chunk
                 else:
                     await asyncio.sleep(0.01)
             except OSError as e:
-                print(f"OSError during read: {e}")
+                log_message(f"OSError during read: {e}")
                 if e.args[0] == 113:
-                    print("Detailed log: ECONNABORTED (113) occurred during socket read.")
+                    log_message("Detailed log: ECONNABORTED (113) occurred during socket read.")
                 self.open = False
                 return None
             except Exception as e:
-                print(f"Unexpected error during read: {e}")
+                log_message(f"Unexpected error during read: {e}")
                 self.open = False
                 return None
 
@@ -89,7 +90,7 @@ class WebSocketClient:
             opcode = b1 & 0x0F
             fin = b1 & 0x80
             if opcode == 0x8: # CLOSE Frame
-                 print("Received WebSocket CLOSE frame.")
+                 log_message("Received WebSocket CLOSE frame.")
                  self.open = False
                  return None
 
@@ -106,7 +107,7 @@ class WebSocketClient:
                 payload_len = struct.unpack("!Q", ext_len_bytes)[0]
 
             if is_masked:
-                print("Warning: Received masked frame from server (unexpected).")
+                log_message("Warning: Received masked frame from server (unexpected).")
                 mask = await self._read_exact(4)
                 if mask is None: return None
                 payload = await self._read_exact(payload_len)
@@ -122,13 +123,13 @@ class WebSocketClient:
                 try:
                     return payload.decode("utf-8")
                 except UnicodeError:
-                    print("Error decoding UTF-8 payload.")
+                    log_message("Error decoding UTF-8 payload.")
                     return payload
             else:
                 return payload
 
         except Exception as e:
-            print(f"Exception in async_recv: {e}")
+            log_message(f"Exception in async_recv: {e}")
             self.open = False
             return None
 
@@ -137,13 +138,13 @@ class WebSocketClient:
             try:
                  self.poller.unregister(self.sock)
             except Exception as e:
-                 print(f"Error unregistering socket from poller: {e}")
+                 log_message(f"Error unregistering socket from poller: {e}")
         self.open = False
         try:
             self.sock.close()
-            print("Socket closed.")
+            log_message("Socket closed.")
         except Exception as e:
-            print(f"Error closing socket: {e}")
+            log_message(f"Error closing socket: {e}")
 
 def connect_ws(uri, timeout_sec=10):
     m = re.match(r"ws://([^:/]+)(?::(\d+))?(/.*)?", uri)
@@ -207,23 +208,23 @@ async def websocket_client(sensor_routine=None):
         ws = None
         try:
             if runtime_config.is_reboot_requested():
-                print("Reboot solicitado, esperando a que el scheduler lo ejecute...")
+                log_message("Reboot solicitado, esperando a que el scheduler lo ejecute...")
                 await asyncio.sleep(30)
                 continue
 
-            print("Verificando conectividad WiFi...")
+            log_message("Verificando conectividad WiFi...")
             should_reset_iface = (wifi_connection_attempts == 1) or \
                                  (wifi_connection_attempts > 0 and time.time() - last_wifi_reset_attempt > 300)
 
             if not connect_wifi(reset_interface=should_reset_iface):
                 wifi_connection_attempts += 1
-                print(f"Fallo al conectar WiFi (Intento {wifi_connection_attempts}/{MAX_WIFI_ATTEMPTS}).")
+                log_message(f"Fallo al conectar WiFi (Intento {wifi_connection_attempts}/{MAX_WIFI_ATTEMPTS}).")
                 if should_reset_iface:
                     last_wifi_reset_attempt = time.time()
 
                 if wifi_connection_attempts >= MAX_WIFI_ATTEMPTS:
-                    print(f"Se alcanzó el máximo de {MAX_WIFI_ATTEMPTS} intentos fallidos de WiFi.")
-                    print("Solicitando reinicio coordinado del sistema...")
+                    log_message(f"Se alcanzó el máximo de {MAX_WIFI_ATTEMPTS} intentos fallidos de WiFi.")
+                    log_message("Solicitando reinicio coordinado del sistema...")
                     runtime_config.request_reboot()
                     await asyncio.sleep(WIFI_FAIL_WAIT_S)
                 else:
@@ -231,39 +232,39 @@ async def websocket_client(sensor_routine=None):
 
                 continue
 
-            print("WiFi conectado exitosamente.")
-            if wifi_connection_attempts > 0: print(f"Needed {wifi_connection_attempts} WiFi attempts.")
+            log_message("WiFi conectado exitosamente.")
+            if wifi_connection_attempts > 0: log_message(f"Needed {wifi_connection_attempts} WiFi attempts.")
             wifi_connection_attempts = 0
             runtime_config.clear_reboot_request()
             last_wifi_reset_attempt = 0
 
-            print("Intentando conectar al servidor WebSocket:", SERVER_URI)
+            log_message("Intentando conectar al servidor WebSocket:", SERVER_URI)
             ws = connect_ws(SERVER_URI)
-            print("Conectado al servidor WebSocket!")
+            log_message("Conectado al servidor WebSocket!")
 
             while True:
                 msg = await ws.async_recv()
                 if msg is None:
                     raise OSError("WebSocket connection closed or read error") # < -- Aquí se daba el error connectionerror
 
-                print(f"WS Recibido: {msg}")
+                log_message(f"WS Recibido: {msg}")
                 if isinstance(msg, str) and msg.strip().upper() == "PING":
-                    print("WS Enviado: PONG")
+                    log_message("WS Enviado: PONG")
                     ws.send("PONG")
                     if sensor_routine:
-                        print("Conexión activa, intentando enviar datos pendientes...")
+                        log_message("Conexión activa, intentando enviar datos pendientes...")
                         sensor_routine.mark_retry_flag()
                 #await asyncio.sleep(30)
 
         except Exception as e:
-            print(f"Error en ciclo principal WebSocket/WiFi: {e}")
+            log_message(f"Error en ciclo principal WebSocket/WiFi: {e}")
             if ws:
                 try:
-                    print("Cerrando conexión WebSocket en bloque except...")
+                    log_message("Cerrando conexión WebSocket en bloque except...")
                     ws.close()
                 except Exception as close_err:
-                    print(f"Error al cerrar WebSocket en except: {close_err}")
-            print(f"Reintentando ciclo completo en {WS_RECONNECT_DELAY_S} segundos...")
+                    log_message(f"Error al cerrar WebSocket en except: {close_err}")
+            log_message(f"Reintentando ciclo completo en {WS_RECONNECT_DELAY_S} segundos...")
             await asyncio.sleep(WS_RECONNECT_DELAY_S)
 
 async def main(sensor_routine=None):

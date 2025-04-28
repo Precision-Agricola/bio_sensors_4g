@@ -1,6 +1,8 @@
 import network
 import time
 import config.runtime as config
+from utils.logger import log_message
+
 
 # --- Constantes ---
 WIFI_SSID = "PrecisionAgricola"
@@ -11,7 +13,7 @@ def connect_wifi(reset_interface=False):
     wlan = network.WLAN(network.STA_IF)
 
     if reset_interface:
-        print("Reiniciando interfaz WiFi...")
+        log_message("Reiniciando interfaz WiFi...")
         if wlan.active():
             wlan.active(False)
             time.sleep(1)
@@ -19,19 +21,19 @@ def connect_wifi(reset_interface=False):
         time.sleep(2)
 
     if not wlan.active():
-        print("Activando interfaz WLAN...")
+        log_message("Activando interfaz WLAN...")
         wlan.active(True)
         time.sleep(1)
 
     if wlan.isconnected():
-        print("WiFi ya está conectado.") # Opcional: Log si ya estaba conectado
+        log_message("WiFi ya está conectado.") # Opcional: Log si ya estaba conectado
         return True
 
-    print(f"Intentando conectar a la red WiFi '{WIFI_SSID}'...")
+    log_message(f"Intentando conectar a la red WiFi '{WIFI_SSID}'...")
     try:
         wlan.connect(WIFI_SSID, WIFI_PASSWORD)
     except OSError as e:
-        print(f"Error OSError al iniciar conexión: {e}")
+        log_message(f"Error OSError al iniciar conexión: {e}")
         wlan.active(False)
         time.sleep(1)
         wlan.active(True)
@@ -40,7 +42,7 @@ def connect_wifi(reset_interface=False):
     start_time = time.time()
     while not wlan.isconnected():
         if time.time() - start_time > CONNECTION_TIMEOUT:
-            print(f"Error: Timeout ({CONNECTION_TIMEOUT}s) esperando conexión WiFi.")
+            log_message(f"Error: Timeout ({CONNECTION_TIMEOUT}s) esperando conexión WiFi.")
             try:
                 wlan.disconnect()
             except OSError:
@@ -50,11 +52,11 @@ def connect_wifi(reset_interface=False):
 
     if wlan.isconnected():
         ip_info = wlan.ifconfig()
-        print(f"Conectado exitosamente a {WIFI_SSID} con IP: {ip_info[0]}")
+        log_message(f"Conectado exitosamente a {WIFI_SSID} con IP: {ip_info[0]}")
         return True
     else:
         # Doble verificación, aunque el timeout debería haberlo capturado
-        print("Error: Falló la conexión WiFi después del intento.")
+        log_message("Error: Falló la conexión WiFi después del intento.")
         return False
 
 def is_connected():
@@ -64,10 +66,10 @@ def is_connected():
 def disconnect_wifi():
     wlan = network.WLAN(network.STA_IF)
     if wlan.isconnected():
-        print("Desconectando WiFi...")
+        log_message("Desconectando WiFi...")
         wlan.disconnect()
         time.sleep(1)
     if wlan.active():
-        print("Desactivando interfaz WiFi...")
+        log_message("Desactivando interfaz WiFi...")
         wlan.active(False)
-    print("WiFi desconectada y desactivada.")
+    log_message("WiFi desconectada y desactivada.")

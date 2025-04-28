@@ -1,5 +1,7 @@
 import json
 from sensors.base import sensor_registry
+from utils.logger import log_message
+
 
 def load_sensor_config(config_file='config/sensors.json'):
     try:
@@ -15,9 +17,9 @@ def load_sensor_config(config_file='config/sensors.json'):
             if sensor_cls:
                 sensors.append(sensor_cls(**item))
             else:
-                print(f"Skipping unknown sensor: {model} ({protocol})")
-        print(f"Loaded Sensors {sensors}")
+                log_message(f"Skipping unknown sensor: {model} ({protocol})")
+        log_message(f"Loaded Sensors {sensors}")
         return sensors
     except Exception as e:
-        print(f"Error loading sensor config: {str(e)}")
+        log_message(f"Error loading sensor config: {str(e)}")
         return []

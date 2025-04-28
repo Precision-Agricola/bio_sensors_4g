@@ -6,9 +6,6 @@ __pycache__/
 # vscode folder
 .vscode/
 
-# Credentials
-src/config/secrets.py
-
 # Payload data
 src/data/**
 

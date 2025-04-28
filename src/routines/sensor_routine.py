@@ -5,6 +5,8 @@ import time
 import urequests
 from readings.scheduler import SensorScheduler
 from config.secrets import DEVICE_ID
+from utils.logger import log_message
+
 
 class SensorRoutine:
     def __init__(self, data_folder="data", device_id = DEVICE_ID):
@@ -28,20 +30,20 @@ class SensorRoutine:
 
     def retry_pending_data_if_needed(self):
         if self._retry_flag:
-            print("Retrying to send pending data...")
+            log_message("Retrying to send pending data...")
             self.retry_pending_data()
             self._retry_flag = False
         
     def start(self):
-        print("Starting sensor routine...")
+        log_message("Starting sensor routine...")
         return self.scheduler.start()
     
     def stop(self):
-        print("Stopping sensor routine...")
+        log_message("Stopping sensor routine...")
         return self.scheduler.stop()
     
     def read_now(self):
-        print("Performing immediate sensor reading...")
+        log_message("Performing immediate sensor reading...")
         return self.scheduler.read_now()
     
     def _send_via_http(self, readings):
@@ -59,34 +61,32 @@ class SensorRoutine:
             response.close()
             gc.collect()
             if status == 200:
-                print("Data sent via HTTP successfully")
+                log_message("Data sent via HTTP successfully")
                 return True
             else:
-                print("HTTP POST failed with status:", status)
+                log_message("HTTP POST failed with status:", status)
                 return False
         except Exception as e:
-            print("Error sending via HTTP:", e)
+            log_message("Error sending via HTTP:", e)
             gc.collect()
             return False
 
     def _save_data_callback(self, readings):
         if not readings or 'data' not in readings:
-            print("No data to save")
+            log_message("No data to save")
             return
-            
+
         try:
-            timestamp = readings['timestamp']
-            filename = f"{self.data_folder}/sensors_{int(timestamp)}.json"
+            timestamp_str = readings['timestamp']
+            safe_timestamp_str = timestamp_str.replace(':', '-').replace('T', '_')
+            filename = f"{self.data_folder}/sensors_{safe_timestamp_str}.json"
             with open(filename, 'w') as f:
                 json.dump(readings, f)
-            print(f"Data saved in {filename}")
-            
-            # Try to send this reading and also process any pending files
+            log_message(f"Data saved in {filename}")
             self._process_pending_data()
-            
             gc.collect()
         except Exception as e:
-            print(f"Error saving data: {e}")
+            log_message(f"Error saving data: {e}")
 
     def _process_pending_data(self):
         try:
@@ -97,7 +97,7 @@ class SensorRoutine:
             for filename in files:
                 # Limit batch size to avoid overloading
                 if files_processed >= 5:  # Process max 5 files per batch
-                    print("Batch limit reached, will process remaining files later")
+                    log_message("Batch limit reached, will process remaining files later")
                     break
                     
                 filepath = f"{self.data_folder}/{filename}"
@@ -108,7 +108,7 @@ class SensorRoutine:
                 if self._send_via_http(data):
                     # Only remove if successful
                     os.remove(filepath)
-                    print(f"Sent and removed {filepath}")
+                    log_message(f"Sent and removed {filepath}")
                     files_processed += 1
                     
                     # Add delay between transmissions (500ms)
@@ -117,9 +117,9 @@ class SensorRoutine:
                     # Stop trying if we hit a failure
                     break
                     
-            print(f"Processed {files_processed} pending files")
+            log_message(f"Processed {files_processed} pending files")
         except Exception as e:
-            print(f"Error processing pending data: {e}")
+            log_message(f"Error processing pending data: {e}")
 
 
     # Add this method to allow manual retries

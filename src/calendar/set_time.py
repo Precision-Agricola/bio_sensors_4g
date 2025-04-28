@@ -1,22 +1,27 @@
+# src/calendar/set_time.py
+
 from machine import Pin
 import calendar.ds1302 as ds1302
-from config.config import load_device_config
+from utils.logger import log_message
 
-DEFAULT_RTC_CONFIG = {
-    "clk_pin": 16,
-    "dio_pin": 21,
-    "cs_pin": 23
-}
+try:
+    from config.config import RTC_CLK_PIN, RTC_DIO_PIN, RTC_CS_PIN
+except ImportError:
+    log_message("WARN: No se encontraron constantes RTC_..._PIN en config.config, usando defaults 16, 21, 23.")
+    RTC_CLK_PIN = 16
+    RTC_DIO_PIN = 21
+    RTC_CS_PIN = 23
+
 
 def init_rtc(config=None):
-    if config is None:
-        device_config = load_device_config()
-        rtc_config = device_config.get('rtc', DEFAULT_RTC_CONFIG)
-    else:
-        rtc_config = config
-    clk = Pin(rtc_config.get('clk_pin', DEFAULT_RTC_CONFIG['clk_pin']))
-    dio = Pin(rtc_config.get('dio_pin', DEFAULT_RTC_CONFIG['dio_pin']))
-    cs = Pin(rtc_config.get('cs_pin', DEFAULT_RTC_CONFIG['cs_pin']))
+    clk_pin_num = RTC_CLK_PIN
+    dio_pin_num = RTC_DIO_PIN
+    cs_pin_num = RTC_CS_PIN
+
+    clk = Pin(clk_pin_num)
+    dio = Pin(dio_pin_num)
+    cs = Pin(cs_pin_num)
+
     return ds1302.DS1302(clk, dio, cs)
 
 def compute_weekday(day, month, year):
@@ -43,7 +48,7 @@ def set_current_time(time_str, config=None):
     weekday = compute_weekday(day, month, year)
     dt = (year, month, day, weekday, hour, minute, 0)
     rtc.date_time(dt)
-    print("RTC set to:", format_datetime((year, month, day, hour, minute, 0)))
+    log_message("RTC set to:", format_datetime((year, month, day, hour, minute, 0)))
 
 # Example usage:
 # from calendar.set_time import set_current_time
