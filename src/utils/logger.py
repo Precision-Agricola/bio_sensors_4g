@@ -3,7 +3,7 @@ import uos
 import utime
 
 LOG_FILENAME = 'app.log'
-MAX_LOG_SIZE_BYTES = 50 * 1024
+MAX_LOG_SIZE_BYTES = 500 * 1024
 LOGGING_ENABLED = True
 
 def _get_timestamp():

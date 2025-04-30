@@ -2,86 +2,88 @@
 
 import utime
 import machine
-from utils.logger import log_message
-from utils.logger import manage_log_file
 
 try:
-    from calendar.get_time import init_rtc as init_external_rtc
-    from calendar.get_time import get_current_time as read_external_rtc
+    from calendar.rtc_manager import RTCManager
+    _RTC_MANAGER_AVAILABLE = True
 except ImportError as e:
-    log_message(f"ERROR CRITICO: No se pudo importar init_external_rtc o read_external_rtc desde calendar.get_time: {e}")
-    def read_external_rtc(rtc_obj): return None
-    def init_external_rtc(): return None
+    print(f"ERROR: No se pudo importar RTCManager: {e}. Sincronización RTC externa no disponible.")
+    RTCManager = None
+    _RTC_MANAGER_AVAILABLE = False
 
+_rtc_manager_instance = None
 
-def _fetch_time_from_source():
-    try:
-        rtc_ext = init_external_rtc()
-        if rtc_ext:
-            time_tuple_ext = read_external_rtc(rtc_ext)
-            return time_tuple_ext
-        else:
-            log_message("Error al inicializar RTC externo (DS1302).")
-            return None
-    except Exception as e:
-        log_message("Error al leer hora desde DS1302:", e)
+def _get_rtc_manager_instance():
+    global _rtc_manager_instance
+    if not _RTC_MANAGER_AVAILABLE:
         return None
+    if _rtc_manager_instance is None:
+        _rtc_manager_instance = RTCManager()
+        if not _rtc_manager_instance.rtc:
+             _rtc_manager_instance = None
+             print("ERROR: Falló la inicialización del hardware DS1302 en RTCManager.")
+    return _rtc_manager_instance
 
+def _fetch_time_from_external():
+    rtc_man = _get_rtc_manager_instance()
+    if rtc_man:
+        time_tuple = rtc_man.get_time_tuple()
+        if time_tuple and len(time_tuple) >= 6 and time_tuple[0] >= 2024:
+            return time_tuple
+        else:
+            print(f"WARN: Hora de RTC externo inválida o muy antigua: {time_tuple}")
+            return None
+    return None
 
-def _set_esp32_rtc(time_tuple_ext):
+def _set_esp32_internal_rtc(time_tuple_ext):
     try:
         if not time_tuple_ext or len(time_tuple_ext) < 6:
-             log_message("Error: Tupla de tiempo externa inválida para configurar RTC interno.")
-             return False
+            return False
 
         weekday = 0
         try:
-             temp_tuple_for_mktime = time_tuple_ext[0:6] + (0, 0)
-             timestamp = utime.mktime(temp_tuple_for_mktime)
-             full_localtime_tuple = utime.localtime(timestamp)
-             weekday = full_localtime_tuple[6]
-        except Exception:
-             log_message("Aviso: No se pudo calcular weekday exacto con mktime/localtime, usando Lunes(0).")
+            secs = utime.mktime(time_tuple_ext[0:6] + (0, 0))
+            weekday = utime.localtime(secs)[6]
+        except Exception as e:
+            print(f"WARN: No se pudo calcular weekday exacto ({e}), usando Lunes(0).")
 
-        rtc_tuple = (time_tuple_ext[0], time_tuple_ext[1], time_tuple_ext[2], weekday,
-                     time_tuple_ext[3], time_tuple_ext[4], time_tuple_ext[5], 0)
+        rtc_tuple_for_internal = (time_tuple_ext[0], time_tuple_ext[1], time_tuple_ext[2], weekday,
+                                  time_tuple_ext[3], time_tuple_ext[4], time_tuple_ext[5], 0) # microseg=0
 
         rtc_int = machine.RTC()
-        rtc_int.datetime(rtc_tuple)
+        rtc_int.datetime(rtc_tuple_for_internal)
         return True
     except Exception as e:
-        log_message("Error al configurar RTC interno (machine.RTC):", e)
+        print(f"ERROR: Fallo al configurar machine.RTC: {e}")
         return False
 
-
-def _initialize_rtc():
+def initialize_internal_rtc():
+    """Verifica el RTC interno y lo sincroniza desde el externo si es necesario."""
     try:
         current_internal_time = utime.localtime()
-        if current_internal_time[0] < 2024:
-            log_message("RTC interno parece no configurado. Intentando sincronizar...")
-            external_time = _fetch_time_from_source()
-            if external_time:
-                if _set_esp32_rtc(external_time):
-                    log_message("RTC interno configurado exitosamente.")
-                    new_time_str = "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(*utime.localtime()[:6])
-                    log_message("Nueva hora RTC:", new_time_str)
-                else:
-                    log_message("Fallo al configurar RTC interno usando hora externa.")
-            else:
-                log_message("No se pudo obtener hora de fuente externa (DS1302/NTP).")
-        else:
-            current_time_str = "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(*current_internal_time[:6])
-            log_message("RTC interno ya tiene hora válida:", current_time_str)
-    except Exception as e:
-        log_message("Error crítico durante inicialización de RTC:", e)
 
+        if current_internal_time[0] < 2024:
+            external_time_tuple = _fetch_time_from_external() # Leer DS1302
+
+            if external_time_tuple:
+                _set_esp32_internal_rtc(external_time_tuple)
+            else:
+                print("ERROR: No se pudo obtener hora válida de RTC externo. RTC interno sigue desconfigurado.")
+        else:
+            print("INFO: RTC interno ya parece tener hora válida.")
+
+    except Exception as e:
+        print(f"ERROR: Error crítico durante inicialización de RTC interno: {e}")
+    print("INFO: --- Fin Inicialización RTC Interno ---")
+
+def _format_datetime(dt_tuple):
+    if not dt_tuple or len(dt_tuple) < 6: return "Fecha/Hora inválida"
+    try: return "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(*dt_tuple[:6])
+    except: return "Error de formato"
 
 def system_setup():
-    manage_log_file()
-    log_message("===================================")
-    log_message("Iniciando Setup del Sistema...")
-    log_message("===================================")
-    _initialize_rtc()
-    log_message("-----------------------------------")
-    log_message("Setup del Sistema Completado.")
-    log_message("-----------------------------------")
+    """Función principal para configurar el sistema al inicio."""
+    print(f"Iniciando Setup del Sistema @ {_format_datetime(utime.localtime())}")
+    initialize_internal_rtc()
+    print("-----------------------------------")
+    print("Setup del Sistema Completado.")
