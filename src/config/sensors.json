@@ -1,0 +1,43 @@
+[
+	{
+		"name": "NH3",
+		"model": "NH3",
+		"protocol": "analog",
+		"vin": "3.3",
+		"signal": 36,
+		"wire_color": "yellow"
+	},
+	{
+		"name": "H2S",
+		"model": "H2S",
+		"protocol": "analog",
+		"vin": "3.3",
+		"signal": 39,
+		"wire_color": "brown"
+	},
+	{
+		"name": "Sensor pH",
+		"model": "PH",
+		"protocol": "ANALOG",
+		"vin": "3.3",
+		"signal": 32,
+		"wire_color": "TBD"
+	},
+	{
+		"name": "Pressure",
+		"model": "BMP3901",
+		"protocol": "i2c",
+		"vin": "3.3",
+		"bus_num": 0,
+		"address": "0x77"
+	},
+	{
+		"name": "RS485 Sensor",
+		"model": "RS485_SENSOR",
+		"protocol": "MODBUS",
+		"vin": 12,
+		"bus_num": 2,
+		"signal": 1,
+		"address": 1
+	}
+]
