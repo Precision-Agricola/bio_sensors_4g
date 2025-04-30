@@ -249,7 +249,8 @@ async def sensors_data(request):
         payload_for_aws = {
              "device_id": data.get("device_id", "unknown"),
              "timestamp": data.get("timestamp", int(time.time())),
-             "data": data.get("sensors", {})
+             "data": data.get("sensors", {}),
+             "aerator_status": data.get("aerator_status", "UNKNOWN") 
          }
         wdt.feed()
         print("Received sensor data, queuing for AWS send:", payload_for_aws.get('device_id'))

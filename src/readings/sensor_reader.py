@@ -55,8 +55,8 @@ class SensorReader:
             except Exception as e:
                 log_message("ERROR:", f"Creando sensor {config.get('name', 'desconocido')}: {e}")
 
-    def read_sensors(self, relay='A', custom_settling_time=None):
-        settling = custom_settling_time or self.settling_time
+    def read_sensors(self, relay='A', custom_settling_time=None, aerator_state=None):
+        settling = custom_settling_time if custom_settling_time is not None else self.settling_time
         readings = {}
         successful_sensors = []
 
@@ -84,6 +84,8 @@ class SensorReader:
 
         timestamp = self._get_timestamp()
         self.last_readings = {"timestamp": timestamp, "data": readings}
+        if aerator_state is not None:
+            self.last_readings['aerator_status'] = "ON" if aerator_state else "OFF"
         log_message("INFO:", f"Lectura completada ({len(successful_sensors)} sensores). Timestamp: {timestamp}")
         return self.last_readings
 

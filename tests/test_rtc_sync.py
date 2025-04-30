@@ -1,6 +1,6 @@
 import time
 from calendar.rtc_manager import RTCManager
-#TODO: changhe the import path (src.calendar.rtc_manager or calendar.rtc_manager)
+
 rtc_manager = RTCManager()
 
 

@@ -25,7 +25,8 @@ def send_to_aws(data):
         payload_json = {
             "device_id": data.get("device_id", "unknown"),
             "timestamp": data.get("timestamp", 0),
-            "sensor_data": data.get("data", {})
+            "sensor_data": data.get("data", {}),
+            "aerator_status":data.get("aerator_status", "unreachable")
         }
         payload = json.dumps(payload_json)
         

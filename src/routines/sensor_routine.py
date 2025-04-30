@@ -56,6 +56,7 @@ class SensorRoutine:
                 "timestamp": readings.get("timestamp", 0),
                 "sensors": readings.get("data", readings.get("sensors", {}))
             }
+            payload['aerator_status'] = readings.get('aerator_status', 'UNKNOWN')
             response = urequests.post(url, json=payload, headers=headers)
             status = response.status_code
             response.close()

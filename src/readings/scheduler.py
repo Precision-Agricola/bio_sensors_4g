@@ -44,70 +44,98 @@ class SensorScheduler:
         return False
     
     def _monitoring_task(self):
-        log_message("Tarea de monitoreo de sensores iniciada.")
+        log_message("Tarea monitoreo iniciada (3 lecturas ON / 3 OFF).")
         try:
             from system.control.relays import LoadRelay
             aerator_relay = LoadRelay()
-            log_message("Instancia de LoadRelay creada en _monitoring_task.")
         except Exception as e:
-            log_message(f"Error CRÍTICO al importar/instanciar LoadRelay: {e}")
-            log_message("La tarea de monitoreo no puede continuar sin control de relés.")
-            self.running = False
-            return
+            log_message(f"Error CRITICO LoadRelay: {e}"); self.running = False; return
 
         last_state = aerator_relay.get_state()
-        log_message(f"Estado inicial del aireador: {'ON' if last_state else 'OFF'}")
-        cycle_start_time = time.time() if last_state else 0
+        on_cycle_start_time = 0
+        off_cycle_start_time = 0
+        on_read_count = 0
+        off_read_count = 0
+        # Defaults iniciales y cálculo de intervalos
+        on_time = 3*3600; off_time = 3*3600; time_factor = 1
+        try: time_factor = runtime_config.get_speed() # Intentar leer config
+        except: pass
+        on_time = max(1, 3*3600 // time_factor); off_time = max(1, 3*3600 // time_factor)
+        on_read_interval = on_time / 3.0; off_read_interval = off_time / 3.0
+        next_on_read_target = 0; next_off_read_target = 0
+
+        # Establecer estado inicial
+        now = time.time()
+        if last_state:
+            on_cycle_start_time = now
+            next_on_read_target = on_cycle_start_time + on_read_interval
+        else:
+            off_cycle_start_time = now
+            next_off_read_target = off_cycle_start_time + off_read_interval
 
         while self.running:
             try:
                 current_state = aerator_relay.get_state()
                 state_changed = (current_state != last_state)
+                now = time.time()
 
                 if state_changed:
-                    log_message(f"Cambio de estado del aireador detectado: {'OFF' if last_state else 'ON'} -> {'ON' if current_state else 'OFF'}")
-                    if current_state:
-                        cycle_start_time = time.time()
+                    # Recalcular tiempos y reiniciar contadores al cambiar estado
+                    try: # Actualizar tiempos desde config
+                        time_factor=runtime_config.get_speed()
+                        on_time=max(1, 3*3600 // time_factor); off_time=max(1, 3*3600 // time_factor)
+                        on_read_interval=on_time / 3.0; off_read_interval=off_time / 3.0
+                    except: pass # Usar valores previos si falla config
 
+                    if current_state: # A -> ON
+                        on_cycle_start_time = now; on_read_count = 0
+                        next_on_read_target = on_cycle_start_time + on_read_interval
+                    else: # A -> OFF
+                        off_cycle_start_time = now; off_read_count = 0
+                        next_off_read_target = off_cycle_start_time + off_read_interval
+
+                # Reboot check (sin cambios)
                 if state_changed and runtime_config.is_reboot_requested():
-                    log_message("!!! Condición de reinicio cumplida: Cambio de estado del ciclo y bandera activa.")
-                    log_message("!!! Reiniciando el sistema en 3 segundos...")
-                    time.sleep(3)
-                    machine.reset()
+                    log_message("!!! Rebooting..."); time.sleep(3); machine.reset()
 
-                if current_state:
-                    time_factor = runtime_config.get_speed()
-                    on_time = 3 * 3600 // time_factor
-                    time_elapsed = time.time() - cycle_start_time
-                    mid_cycle_time = on_time / 2
+                # --- Lógica de Lectura (3 ON / 3 OFF) ---
+                common_read_args = {'custom_settling_time': 10, 'aerator_state': current_state}
 
-                    read_window_start = mid_cycle_time - 120 
-                    read_window_end = mid_cycle_time + 120
-                    min_time_since_last_read = on_time / 3
-
-                    if read_window_start <= time_elapsed <= read_window_end and \
-                       (time.time() - self.last_reading_time > min_time_since_last_read):
-
-                        log_message(f"Punto medio del ciclo ON alcanzado (t={int(time_elapsed)}s). Realizando lectura de sensores...")
-                        readings = self.reader.read_sensors(custom_settling_time=10)
-                        self.last_reading_time = time.time()
-                        log_message(f"Lectura completada: {readings}")
-
-                        for callback in self.callbacks:
-                            try:
-                                callback(readings)
-                            except Exception as e:
-                                log_message(f"Error en callback del scheduler: {e}")
+                # Lecturas durante ciclo ON
+                if current_state and on_read_count < 3 and now >= next_on_read_target:
+                    log_message(f"INFO: Lectura ON {on_read_count + 1}/3...")
+                    try:
+                        readings = self.reader.read_sensors(**common_read_args)
+                        self.last_reading_time = now
+                        for callback in self.callbacks: callback(readings)
                         gc.collect()
+                    except Exception as e: log_message(f"ERROR ON read/callback: {e}")
+                    on_read_count += 1
+                    if on_read_count < 3: # Calcular siguiente si aún faltan
+                        next_on_read_target = on_cycle_start_time + (on_read_count + 1) * on_read_interval
+
+                # Lecturas durante ciclo OFF
+                elif not current_state and off_read_count < 3 and now >= next_off_read_target:
+                    log_message(f"INFO: Lectura OFF {off_read_count + 1}/3...")
+                    try:
+                        readings = self.reader.read_sensors(**common_read_args)
+                        self.last_reading_time = now
+                        for callback in self.callbacks: callback(readings)
+                        gc.collect()
+                    except Exception as e: log_message(f"ERROR OFF read/callback: {e}")
+                    off_read_count += 1
+                    if off_read_count < 3: # Calcular siguiente si aún faltan
+                        next_off_read_target = off_cycle_start_time + (off_read_count + 1) * off_read_interval
+                # --- Fin Lógica de Lectura ---
 
                 last_state = current_state
-                time.sleep(10)
+                time.sleep(10) # Pausa del bucle principal
 
             except Exception as e:
                 log_message(f"Error grave en _monitoring_task: {e}")
-                time.sleep(60)
+                time.sleep(60) # Pausa larga en caso de error grave
 
-        log_message("Tarea de monitoreo de sensores finalizada.")
+        log_message("Tarea de monitoreo finalizada.")
 
     def read_now(self):
         log_message("Realizando lectura inmediata de sensores...")
