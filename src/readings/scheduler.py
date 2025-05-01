@@ -75,6 +75,7 @@ class SensorScheduler:
 
         while self.running:
             try:
+                #TODO: aerator state always is shown as "ON", inspect why state "OFF" is not correctly read
                 current_state = aerator_relay.get_state()
                 state_changed = (current_state != last_state)
                 now = time.time()
