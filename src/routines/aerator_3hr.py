@@ -3,36 +3,30 @@ import config.runtime as runtime_config
 import time
 from utils.logger import log_message
 
-
 def turn_on_aerators(wdt=None):
     log_message("Initializing aerator control routine...")
-    time_factor = runtime_config.get_speed()
-    aerator_relays = LoadRelay()
-    on_time = 3 * 3600 // time_factor
-    off_time = 3 * 3600 // time_factor
+    tf = runtime_config.get_speed()
+    relays = LoadRelay()
+    cycle = 3 * 3600 // tf
 
-    log_message(f"Starting aerator cycle: {on_time}s ON, {off_time}s OFF")
+    log_message(f"Starting aerator cycle: {cycle}s ON, {cycle}s OFF")
 
     try:
         while True:
             log_message("Aerators ON")
-            aerator_relays.turn_on()
-
-            start_time = time.time()
-            while time.time() - start_time < on_time:
-                if wdt:
-                    wdt.feed()
-                time.sleep(30)
+            relays.turn_on()
+            _wait(cycle, wdt)
 
             log_message("Aerators OFF")
-            aerator_relays.turn_off()
-
-            start_time = time.time()
-            while time.time() - start_time < off_time:
-                if wdt:
-                    wdt.feed()
-                time.sleep(30)
+            relays.turn_off()
+            _wait(cycle, wdt)
 
     except Exception as e:
         log_message(f"Error in aerator routine: {e}")
-        aerator_relays.turn_off()
+        relays.turn_off()
+
+def _wait(duration, wdt):
+    t0 = time.time()
+    while time.time() - t0 < duration:
+        if wdt: wdt.feed()
+        time.sleep(30)
