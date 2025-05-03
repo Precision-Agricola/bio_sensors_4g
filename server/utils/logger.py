@@ -21,7 +21,7 @@ def log_message(*args):
             message_parts.append(str(arg))
         message = ' '.join(message_parts)
         timestamp = _get_timestamp()
-        log_entry = f"{timestamp} {message}"
+        log_entry = f"{timestamp} {message}\n"
         print(log_entry)  
         with open(LOG_FILENAME, 'a') as f:
             f.write(log_entry)
