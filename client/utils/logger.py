@@ -17,6 +17,7 @@ def log_message(*args):
     if not LOGGING_ENABLED:
         return
     try:
+        manage_log_file()
         message_parts = []
         for arg in args:
             message_parts.append(str(arg))
