@@ -5,6 +5,7 @@ import machine
 from microdot import Microdot, Response
 from websocket import with_websocket
 from core.aws_forwarding import send_to_aws
+from utils.logger import log_message
 
 # --- Global State ---
 # Diccionario para almacenar información de clientes conectados
@@ -21,12 +22,12 @@ last_heartbeat = time.ticks_ms()  # Global timestamp
 async def send_to_aws_background_wrapper(payload):
     try:
         success = send_to_aws(payload)
-        print(f"Background AWS send result for {payload.get('device_id')}: {'Success' if success else 'Failure'}")
-        print(f"Payload: {payload}")
+        log_message(f"Background AWS send result for {payload.get('device_id')}: {'Success' if success else 'Failure'}")
+        log_message(f"Payload: {payload}")
     except Exception as e:
-        print(f"Exception in background send_to_aws task: {e}")
+        log_message(f"Exception in background send_to_aws task: {e}")
         import sys
-        sys.print_exception(e)
+        sys.log_message_exception(e)
 
 # --- Watchdog Feeder Task ---
 async def watchdog_feeder():
@@ -35,7 +36,7 @@ async def watchdog_feeder():
     Si no hay clientes conectados durante un tiempo, deja de alimentar
     permitiendo que el WDT reinicie el sistema si se queda 'colgado' sin clientes.
     """
-    print("Watchdog feeder task started.")
+    log_message("Watchdog feeder task started.")
     NO_CLIENT_RESET_DELAY_S = 5 * 60 # 5 minutos: Tiempo sin clientes antes de dejar de alimentar WDT
     last_client_seen_time = time.ticks_ms()
 
@@ -43,12 +44,12 @@ async def watchdog_feeder():
         now = time.ticks_ms()
         if clients: # Si el diccionario de clientes NO está vacío
             last_client_seen_time = now # Actualizar timestamp de último cliente visto
-            # print("WDT Fed (Clients Connected)") # Debug log - puede ser ruidoso
+            # log_message("WDT Fed (Clients Connected)") # Debug log - puede ser ruidoso
             wdt.feed()
         else:
             # No hay clientes conectados
             if time.ticks_diff(now, last_client_seen_time) > NO_CLIENT_RESET_DELAY_S * 1000:
-                print(f"WDT: No clients connected for {NO_CLIENT_RESET_DELAY_S}s. Stopping feed to allow potential reset.")
+                log_message(f"WDT: No clients connected for {NO_CLIENT_RESET_DELAY_S}s. Stopping feed to allow potential reset.")
                 # Dejamos de alimentar. Si el sistema está bien pero sin clientes,
                 # seguirá funcionando. Si está colgado, el WDT lo reiniciará.
                 # Rompemos el bucle para dejar de alimentar definitivamente hasta el próximo reinicio.
@@ -92,8 +93,8 @@ async def ws_handler(request, ws):
         "last_pong_time_ms": connect_time # Inicializar al tiempo de conexión
     }
     clients[client_id] = client_info
-    print(f"WebSocket client connected: ID={client_id}, IP={client_ip}")
-    print(f"Total clients: {len(clients)}")
+    log_message(f"WebSocket client connected: ID={client_id}, IP={client_ip}")
+    log_message(f"Total clients: {len(clients)}")
 
     try:
         while True:
@@ -103,45 +104,45 @@ async def ws_handler(request, ws):
                 await ws.send("PING")
                 ping_sent_time = time.ticks_ms()
             except Exception as send_err:
-                print(f"Error sending PING to {client_id}: {send_err}")
+                log_message(f"Error sending PING to {client_id}: {send_err}")
                 break
 
             try:
                 data = await ws.receive()
             except Exception as recv_err:
-                 print(f"Error receiving data from {client_id}: {recv_err}")
+                 log_message(f"Error receiving data from {client_id}: {recv_err}")
                  break
 
             if data is None:
-                print(f"Connection closed by client {client_id}")
+                log_message(f"Connection closed by client {client_id}")
                 break
 
             now = time.ticks_ms()
             if isinstance(data, str) and data.strip().upper() == "PONG":
                 clients[client_id]["last_pong_time_ms"] = now
-                print(f"Received PONG from {client_id}") # TODO: remove after tests
+                log_message(f"Received PONG from {client_id}") # TODO: remove after tests
             else:
-                print(f"Received data from {client_id}: {data}")
+                log_message(f"Received data from {client_id}: {data}")
                 # Procesar los datos como sea necesario aquí
                 # await ws.send("Echo: " + data) # Eliminar/modificar el echo si no es necesario
 
             last_pong = clients[client_id]["last_pong_time_ms"]
             if time.ticks_diff(now, last_pong) > CLIENT_TIMEOUT_S * 1000:
-                print(f"Client {client_id} timed out (No PONG received for {CLIENT_TIMEOUT_S}s). Disconnecting.")
+                log_message(f"Client {client_id} timed out (No PONG received for {CLIENT_TIMEOUT_S}s). Disconnecting.")
                 break
 
     except Exception as e:
-        print(f"Unhandled exception in ws_handler for client {client_id}: {e}")
+        log_message(f"Unhandled exception in ws_handler for client {client_id}: {e}")
     finally:
-        print(f"Disconnecting client {client_id}...")
+        log_message(f"Disconnecting client {client_id}...")
         try:
             await ws.close()
         except Exception as close_err:
-            print(f"Error closing websocket for {client_id}: {close_err}")
+            log_message(f"Error closing websocket for {client_id}: {close_err}")
         if client_id in clients:
             del clients[client_id]
-            print(f"Client {client_id} removed from registry.")
-        print(f"Total clients remaining: {len(clients)}")
+            log_message(f"Client {client_id} removed from registry.")
+        log_message(f"Total clients remaining: {len(clients)}")
 
 
 @app.route('/clients')
@@ -253,13 +254,13 @@ async def sensors_data(request):
              "aerator_status": data.get("aerator_status", "UNKNOWN") 
          }
         wdt.feed()
-        print("Received sensor data, queuing for AWS send:", payload_for_aws.get('device_id'))
+        log_message("Received sensor data, queuing for AWS send:", payload_for_aws.get('device_id'))
         wdt.feed()
         asyncio.create_task(send_to_aws_background_wrapper(payload_for_aws)) 
         response = {"status": "queued", "message": "Data received and queued for sending to AWS."}
 
     except Exception as e:
-        print(f"Error processing /sensors/data request: {e}")
+        log_message(f"Error processing /sensors/data request: {e}")
         response = {"status": "error", "error": str(e)}
     return response
 
@@ -285,18 +286,18 @@ async def aws_synthetic(request):
         "timestamp": payload["timestamp"],
         "data": payload["sensors"]
     }
-    print("Sending synthetic data to AWS:", payload_for_aws)
+    log_message("Sending synthetic data to AWS:", payload_for_aws)
     try:
         asyncio.create_task(send_to_aws_background_wrapper(payload_for_aws))
         response = {"status": "queued", "message": "Synthetic data queued for sending to AWS.", "data_generated": payload}
     except Exception as e:
-        print(f"Error processing /aws/synthetic request: {e}")
+        log_message(f"Error processing /aws/synthetic request: {e}")
         response = {"status": "error", "error": str(e)}
     return response  
 
 async def start_websocket_server():
-    print(f"Starting Microdot server on 0.0.0.0:80...")
+    log_message(f"Starting Microdot server on 0.0.0.0:80...")
     try:
         await app.start_server(host="0.0.0.0", port=80, debug=False)
     except Exception as e:
-        print(f"FATAL ERROR starting server: {e}")
+        log_message(f"FATAL ERROR starting server: {e}")

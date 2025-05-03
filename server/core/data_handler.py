@@ -3,6 +3,7 @@ import json
 import time
 from core.aws_forwarding import send_to_aws
 from core.stats import update_statistics
+from utils.logger import log_message
 
 # Storage for received data and commands
 received_data = []
@@ -30,20 +31,20 @@ def process_sensor_data(data):
     # Extract device ID
     device_id = data.get('device_id', 'unknown')
     
-    # Print data summary
-    print("\n" + "=" * 40)
-    print(f"DATA RECEIVED FROM: {device_id}")
-    print(f"Timestamp: {data.get('timestamp')}")
+    # log_message data summary
+    log_message("\n" + "=" * 40)
+    log_message(f"DATA RECEIVED FROM: {device_id}")
+    log_message(f"Timestamp: {data.get('timestamp')}")
     
     # Display sensor data
     if 'data' in data:
-        print("\nSensor readings:")
+        log_message("\nSensor readings:")
         for sensor_name, sensor_value in data['data'].items():
             if isinstance(sensor_value, dict):
-                print(f"  - {sensor_name}: {sensor_value}")
+                log_message(f"  - {sensor_name}: {sensor_value}")
             else:
-                print(f"  - {sensor_name}: {sensor_value}")
-    print("=" * 40 + "\n")
+                log_message(f"  - {sensor_name}: {sensor_value}")
+    log_message("=" * 40 + "\n")
     
     # Forward to AWS IoT
     aws_result = send_to_aws(data)
@@ -91,7 +92,7 @@ def queue_command(device_id, command, params=None):
             pending_commands["all"] = []
         pending_commands["all"].append(cmd_data)
     
-    print(f"Command queued for {device_id}: {command}")
+    log_message(f"Command queued for {device_id}: {command}")
     return cmd_id
 
 def get_pending_commands(device_id):

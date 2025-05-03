@@ -16,10 +16,10 @@ ap_manager.setup_access_point()
 
 async def scheduled_reboot_task():
     """Tarea que espera REBOOT_INTERVAL_MS y luego reinicia el sistema."""
-    print(f"Scheduled reboot task started. Reboot in approx. {REBOOT_INTERVAL_HOURS} hours.")
+    log_message(f"Scheduled reboot task started. Reboot in approx. {REBOOT_INTERVAL_HOURS} hours.")
     await asyncio.sleep_ms(REBOOT_INTERVAL_MS)
 
-    print(f"Scheduled reboot interval ({REBOOT_INTERVAL_HOURS} hours) reached. Rebooting now...")
+    log_message(f"Scheduled reboot interval ({REBOOT_INTERVAL_HOURS} hours) reached. Rebooting now...")
     await asyncio.sleep(2)
     machine.reset()
 
@@ -29,12 +29,12 @@ async def main():
     if ENABLE_SCHEDULED_REBOOT:
         asyncio.create_task(scheduled_reboot_task())
 
-    print("Starting main application server...")
+    log_message("Starting main application server...")
     await start_websocket_server()
 
 try:
     asyncio.run(main())
 except KeyboardInterrupt:
-    print("Interrupted by user.")
+    log_message("Interrupted by user.")
 finally:
-    print("Application stopped.")
+    log_message("Application stopped.")

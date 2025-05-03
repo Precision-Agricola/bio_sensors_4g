@@ -3,6 +3,7 @@ import json
 from pico_lte.core import PicoLTE
 from machine import Pin
 import time
+from utils.logger import log_message
 
 # LED for status indication
 led = Pin("LED", Pin.OUT)
@@ -11,14 +12,14 @@ led = Pin("LED", Pin.OUT)
 try:
     picoLTE = PicoLTE()
     aws_enabled = True
-    print("AWS IoT Core connection initialized")
+    log_message("AWS IoT Core connection initialized")
 except Exception as e:
     aws_enabled = False
-    print(f"Error initializing AWS IoT: {e}")
+    log_message(f"Error initializing AWS IoT: {e}")
 
 def send_to_aws(data):
     if not aws_enabled:
-        print("AWS IoT Core not initialized, skipping upload")
+        log_message("AWS IoT Core not initialized, skipping upload")
         return False
     
     try:
@@ -34,17 +35,17 @@ def send_to_aws(data):
         for attempt in range(1, retry_count+1):
             result = picoLTE.aws.publish_message(payload)
             if result["status"] == 0:
-                print("Data sent successfully to AWS IoT Core")
+                log_message("Data sent successfully to AWS IoT Core")
                 led.toggle()
                 return True
             else:
-                print(f"Attempt {attempt}: Error sending data to AWS IoT Core: {result}")
+                log_message(f"Attempt {attempt}: Error sending data to AWS IoT Core: {result}")
                 time.sleep(1)
         
         return False
     except Exception as e:
-        print(f"ERROR AWS: {e}")
+        log_message(f"ERROR AWS: {e}")
         import sys
-        sys.print_exception(e)
+        sys.log_message_exception(e)
         return False
 

@@ -1,5 +1,6 @@
 # broker/core/stats.py
 import time
+from utils.logger import log_message
 
 # Statistics counters
 message_count = 0
@@ -53,18 +54,18 @@ def get_statistics():
         "devices": device_status
     }
 
-def print_stats():
-    """Print statistics to console"""
+def log_message_stats():
+    """log_message statistics to console"""
     stats = get_statistics()
     
-    print("\n===== MESSAGE STATISTICS =====")
-    print(f"Messages received: {stats['messages_received']}")
-    print(f"Processing errors: {stats['processing_errors']}")
-    print(f"AWS successful sends: {stats['aws_successes']}")
-    print(f"AWS send errors: {stats['aws_errors']}")
+    log_message("\n===== MESSAGE STATISTICS =====")
+    log_message(f"Messages received: {stats['messages_received']}")
+    log_message(f"Processing errors: {stats['processing_errors']}")
+    log_message(f"AWS successful sends: {stats['aws_successes']}")
+    log_message(f"AWS send errors: {stats['aws_errors']}")
     
-    print("\nLast seen devices:")
+    log_message("\nLast seen devices:")
     for device, info in stats['devices'].items():
-        print(f"  - {device}: {info['last_seen_seconds_ago']} seconds ago")
+        log_message(f"  - {device}: {info['last_seen_seconds_ago']} seconds ago")
     
-    print("=============================\n")
+    log_message("=============================\n")

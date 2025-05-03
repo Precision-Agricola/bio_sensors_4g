@@ -1,6 +1,7 @@
 import network
 import time
 from config.secrets import WIFI_CONFIG
+from utils.logger import log_message
 
 class AccessPointManager:
     def __init__(self, ssid=None, password=None):
@@ -18,5 +19,5 @@ class AccessPointManager:
             if time.time() - start_time > timeout:
                 raise RuntimeError("Failed to activate access point")
             time.sleep(0.1)
-        print("AP Active:", self.ssid, "| IP:", self.ap.ifconfig()[0])
+        log_message("AP Active:", self.ssid, "| IP:", self.ap.ifconfig()[0])
         return self.ap
