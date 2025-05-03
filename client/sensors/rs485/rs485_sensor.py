@@ -11,7 +11,8 @@ class RS485Sensor(Sensor):
 
     def _init_hardware(self):
         # UART2: TX=1, RX=3, Pull-up en RX
-        Pin(3, Pin.IN, Pin.PULL_UP)  # Antes del UART
+        # TODO: error reading sensor in OFF cycle
+        Pin(3, Pin.IN, Pin.PULL_UP)  # Antes del UART 
         self.uart = UART(2, baudrate=9600, tx=1, rx=3)
         self.de_re = Pin(22, Pin.OUT)
         self.de_re.off()  # Asegura modo recepción por defecto
