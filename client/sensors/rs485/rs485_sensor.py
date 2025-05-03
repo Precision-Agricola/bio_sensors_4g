@@ -63,7 +63,7 @@ class RS485Sensor(Sensor):
             log_message(f"Error _decode_response: {e}")
             return None
 
-    def _get_reliable_reading(self, cmd, param_name, attempts=10, delay_ms=250):
+    def _get_reliable_reading(self, cmd, param_name, attempts=5, delay_ms=250):
         valid_readings = []
         raw_values = []
 
@@ -78,8 +78,6 @@ class RS485Sensor(Sensor):
                     valid_readings.append(value)
 
             time.sleep_ms(delay_ms)
-
-        log_message(f"RS485 Raw values [{param_name}]: {raw_values}")
 
         if valid_readings:
             valid_readings.sort()
