@@ -14,9 +14,10 @@ clients = {}
 
 PING_INTERVAL_S = 25
 CLIENT_TIMEOUT_S = PING_INTERVAL_S * 3 
+WDT_TIMEOUT_MS = 8000
 
 # Configure watchdog with maximum (8 seconds)
-wdt = machine.WDT(timeout=8000)
+wdt = None
 last_heartbeat = time.ticks_ms()  # Global timestamp
 
 async def send_to_aws_background_wrapper(payload):
@@ -45,7 +46,7 @@ async def watchdog_feeder():
         if clients: # Si el diccionario de clientes NO está vacío
             last_client_seen_time = now # Actualizar timestamp de último cliente visto
             # log_message("WDT Fed (Clients Connected)") # Debug log - puede ser ruidoso
-            wdt.feed()
+            wdt and wdt.feed()
         else:
             # No hay clientes conectados
             if time.ticks_diff(now, last_client_seen_time) > NO_CLIENT_RESET_DELAY_S * 1000:
@@ -56,7 +57,7 @@ async def watchdog_feeder():
                 break
             else:
                 # Aún estamos en el periodo de gracia sin clientes, seguimos alimentando.
-                wdt.feed()
+                wdt and wdt.feed()
         await asyncio.sleep(1)
 
 app = Microdot()
@@ -243,7 +244,7 @@ async def test_page(request):
 
 @app.route('/sensors/data', methods=['POST'])
 async def sensors_data(request):
-    wdt.feed()
+    wdt and wdt.feed()
     try:
         data = request.json
         if not data: raise ValueError("No JSON data provided")
@@ -253,9 +254,9 @@ async def sensors_data(request):
              "data": data.get("sensors", {}),
              "aerator_status": data.get("aerator_status", "UNKNOWN") 
          }
-        wdt.feed()
+        wdt and wdt.feed()
         log_message("Received sensor data, queuing for AWS send:", payload_for_aws.get('device_id'))
-        wdt.feed()
+        wdt and wdt.feed()
         asyncio.create_task(send_to_aws_background_wrapper(payload_for_aws)) 
         response = {"status": "queued", "message": "Data received and queued for sending to AWS."}
 
