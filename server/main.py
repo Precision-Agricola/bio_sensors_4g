@@ -3,6 +3,7 @@ import time
 import machine
 from core.access_point import AccessPointManager
 from core.websocket_server import start_websocket_server, watchdog_feeder
+from utils.logger import log_message
 
 SSID = "PrecisionAgricola"
 PASSWORD = "ag2025pass"
