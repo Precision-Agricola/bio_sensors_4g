@@ -1,9 +1,15 @@
 import uasyncio as asyncio
-import time
+import utime
 import machine
 from core.access_point import AccessPointManager
 from core import websocket_server
 from utils.logger import log_message
+from core.aws_forwarding import send_to_aws
+import network
+
+def _get_device_id():
+    mac = network.WLAN().config('mac')[-3:]
+    return "server_" + ''.join('{:02X}'.format(b) for b in mac)
 
 SSID = "PrecisionAgricola"
 PASSWORD = "ag2025pass"
@@ -43,6 +49,14 @@ async def main():
         asyncio.create_task(scheduled_reboot_task())
 
     log_message("Starting main application server...")
+    device_id = _get_device_id()
+    startup_payload = {
+        "device_id": device_id,
+        "timestamp": "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(*utime.localtime()[:6]),
+        "data": {"status": "boot"},
+        "aerator_status": "UNKNOWN"
+    }
+    send_to_aws(startup_payload)
     await websocket_server.start_websocket_server()
 
 try:
