@@ -51,7 +51,7 @@ def generate_history_csv(start_time, end_time):
     steps = 0
     while current_time <= end_time:
         for device_id in DEVICE_IDS:
-            data = generate_sensor_data(current_time)
+            data = generate_sensor_data(current_time, device_id)
             flat = flatten_data(device_id, current_time, data)
             device_data[device_id].append(flat)
         current_time += timedelta(hours=1)
