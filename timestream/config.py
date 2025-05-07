@@ -101,7 +101,7 @@ def generate_sensor_data(t, device_id):
         "H2S": round(random.uniform(128, 367), 2),
         "NH3": round(random.uniform(0.026, 0.027), 5),
         "Sensor pH": {
-            "ph_value": round(random.uniform(230, 454), 2)
+            "ph_value": round(random.uniform(423, 454), 2)
         },
         "RS485 Sensor": {
             "rs485_temperature": rs485_temp if aerator_on else None,
