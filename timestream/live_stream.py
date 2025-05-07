@@ -1,13 +1,10 @@
-# load_csv_to_timestream.py
-
-import csv
+import time
 import boto3
-from pathlib import Path
 from datetime import datetime
-from config import DATABASE_NAME, TABLE_NAME
+from config import DEVICE_IDS, DATABASE_NAME, TABLE_NAME, generate_sensor_data
 
 client = boto3.client("timestream-write")
-CSV_DIR = Path("simulated_data")
+SEND_INTERVAL = 20 * 60  # 20 minutos
 
 FLOAT_FIELDS = [
     "H2S", "NH3", "ph_value",
@@ -15,50 +12,64 @@ FLOAT_FIELDS = [
     "pressure", "altitude", "temperature"
 ]
 
-def convert_row(row):
-    dimensions = [{"Name": "device_id", "Value": row["device_id"]}]
-    time_ms = int(datetime.fromisoformat(row["timestamp"]).timestamp() * 1000)
+def convert_row(device_id, data):
+    now_ms = int(datetime.now().timestamp() * 1000)
+    dimensions = [{"Name": "device_id", "Value": device_id}]
     records = []
 
     for field in FLOAT_FIELDS:
-        val = row[field]
-        if val:
+        val = data.get(field)
+        if val is not None:
             records.append({
                 "Dimensions": dimensions,
                 "MeasureName": field,
-                "MeasureValue": val,
+                "MeasureValue": str(val),
                 "MeasureValueType": "DOUBLE",
-                "Time": str(time_ms)
+                "Time": str(now_ms)
             })
 
     records.append({
         "Dimensions": dimensions,
         "MeasureName": "aerator_status",
-        "MeasureValue": row["aerator_status"],
+        "MeasureValue": data["aerator_status"],
         "MeasureValueType": "VARCHAR",
-        "Time": str(time_ms)
+        "Time": str(now_ms)
     })
 
     return records
 
-def load_csv_file(file_path):
-    print(f"Loading {file_path.name}...")
-    with open(file_path, newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
+def live_stream():
+    while True:
+        now = datetime.now()
+        print(f"\n[INFO] Generating real-time data @ {now.isoformat()}")
+
+        for device_id in DEVICE_IDS:
             try:
-                records = convert_row(row)
+                data = generate_sensor_data(now, device_id)
+                flat_data = {
+                    "H2S": data["H2S"],
+                    "NH3": data["NH3"],
+                    "ph_value": data["Sensor pH"]["ph_value"],
+                    "rs485_temperature": data["RS485 Sensor"]["rs485_temperature"],
+                    "ambient_temperature": data["RS485 Sensor"]["ambient_temperature"],
+                    "level": data["RS485 Sensor"]["level"],
+                    "pressure": data["Pressure"]["pressure"],
+                    "altitude": data["Pressure"]["altitude"],
+                    "temperature": data["Pressure"]["temperature"],
+                    "aerator_status": data["aerator_status"]
+                }
+                records = convert_row(device_id, flat_data)
                 client.write_records(
                     DatabaseName=DATABASE_NAME,
                     TableName=TABLE_NAME,
                     Records=records
                 )
+                print(f"[OK] Sent data for {device_id}")
             except Exception as e:
-                print(f"Failed to write row {row['timestamp']} for {row['device_id']}: {e}")
+                print(f"[ERROR] {device_id}: {e}")
 
-def main():
-    for csv_file in CSV_DIR.glob("data_*.csv"):
-        load_csv_file(csv_file)
+        print(f"[WAIT] Sleeping {SEND_INTERVAL} sec...\n")
+        time.sleep(SEND_INTERVAL)
 
 if __name__ == "__main__":
-    main()
+    live_stream()

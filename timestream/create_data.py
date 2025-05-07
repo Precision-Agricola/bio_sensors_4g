@@ -1,3 +1,4 @@
+"""Create the csv formatted data to send into the aws time stream"""
 import csv
 from datetime import datetime, timedelta
 from pathlib import Path
