@@ -98,7 +98,7 @@ def generate_sensor_data(t, device_id):
     pressure_temp = round(base_temp + 0.5 + __noise(0.2), 2)
 
     return {
-        "H2S": round(random.uniform(128, 367), 2),
+        "H2S": round(random.uniform(298, 367), 2),
         "NH3": round(random.uniform(0.026, 0.027), 5),
         "Sensor pH": {
             "ph_value": round(random.uniform(423, 454), 2)
