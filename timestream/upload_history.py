@@ -1,6 +1,4 @@
-# upload_history.py (pre-version con salida CSV)
 
-import csv
 from datetime import datetime, timedelta
 from pathlib import Path
 from config import DEVICE_IDS, generate_sensor_data
@@ -66,3 +64,4 @@ if __name__ == "__main__":
     start = datetime(2025, 4, 11, 18, 18)
     end = datetime.now()
     generate_history_csv(start, end)
+
