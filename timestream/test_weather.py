@@ -9,7 +9,7 @@ LON = -108.89569650966546
 #%%
 def get_current_temp():
     fecha = datetime.now().strftime("%Y-%m-%d")
-    hora_actual = datetime.now().astimezone(local_tz)
+    hora_actual = datetime.now().astimezone(local_tz).hour
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": LAT,
