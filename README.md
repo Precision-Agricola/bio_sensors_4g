@@ -17,6 +17,9 @@ A modular MicroPython-based system for collecting sensor data and transmitting i
         │       └── ...            # Other sensor modules (temperature, pressure, etc.)
         └── tests/                 # Unit tests
 
+## Bioreactor ID
+ - bioreactor 1: ESP32_3002EC
+ - bioreactor 2: ESP32_5DAEC4
 ## Installation
 
 1. Flash MicroPython to your ESP32:
