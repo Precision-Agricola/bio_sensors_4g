@@ -1,13 +1,15 @@
 #%%
 import requests
 from datetime import datetime
+from pytz import timezone
+local_tz = timezone("America/Mazatlan")
 
 LAT = 25.78758584457698
 LON = -108.89569650966546
 #%%
 def get_current_temp():
     fecha = datetime.now().strftime("%Y-%m-%d")
-    hora_actual = datetime.now().hour
+    hora_actual = datetime.now().astimezone(local_tz)
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": LAT,
