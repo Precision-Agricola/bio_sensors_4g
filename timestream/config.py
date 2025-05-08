@@ -6,12 +6,12 @@ import requests
 from bisect import bisect_right
 
 # --- Configuración general ---
-DEVICE_IDS = [f"ESP32_{suffix}" for suffix in ["5ED9F4", "653218", "FEWCD01", "RF2889"]]
+DEVICE_IDS = [f"ESP32_{suffix}" for suffix in ["3002EC", "5DAEC4", "5D99C8", "2E57D0"]]
 DATABASE_NAME = "sampleDB"
 TABLE_NAME = "sampleTable"
 
 # --- Ubicación y offset por dispositivo (puedes ajustar si quieres más diferencias) ---
-_LAT, _LON = 25.56316228176671, -108.47064300518863
+_LAT, _LON = 25.78758584457698, -108.89569650966546
 DEVICE_OFFSETS = {
     "ESP32_5ED9F4": 0.0,
     "ESP32_653218": 0.4,
@@ -50,8 +50,8 @@ def __get_interpolated_temp(t):
 
             horas = data["hourly"]["time"]
             temps = data["hourly"]["temperature_2m"]
-
-            indices_objetivo = [f"{fecha}T{str(h).zfill(2)}:00" for h in [0, 4, 8, 12, 16, 20]]
+            horas_interes = [5, 6, 7, 9, 11, 13, 15, 16, 18, 21]
+            indices_objetivo = [f"{fecha}T{str(h).zfill(2)}:00" for h in horas_interes]
             hs = []
             ts = []
 
