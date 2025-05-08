@@ -42,9 +42,9 @@ def convert_row(device_id, data):
 
 def live_stream():
     while True:
-        now = datetime.now().astimezone(local_tz).hour
+        now = datetime.now().astimezone(local_tz) 
+        print(f"[INFO] readed time: {now}")
         print(f"\n[INFO] Generating real-time data @ {now.isoformat()}")
-
         for device_id in DEVICE_IDS:
             try:
                 data = generate_sensor_data(now, device_id)
