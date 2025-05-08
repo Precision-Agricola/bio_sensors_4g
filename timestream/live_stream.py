@@ -2,6 +2,8 @@ import time
 import boto3
 from datetime import datetime
 from config import DEVICE_IDS, DATABASE_NAME, TABLE_NAME, generate_sensor_data
+from pytz import timezone
+local_tz = timezone("America/Mazatlan")
 
 client = boto3.client("timestream-write")
 SEND_INTERVAL = 20 * 60  # 20 minutos
@@ -40,7 +42,7 @@ def convert_row(device_id, data):
 
 def live_stream():
     while True:
-        now = datetime.now()
+        now = datetime.now().astimezone(local_tz)
         print(f"\n[INFO] Generating real-time data @ {now.isoformat()}")
 
         for device_id in DEVICE_IDS:
