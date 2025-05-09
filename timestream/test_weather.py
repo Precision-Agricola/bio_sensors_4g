@@ -1,11 +1,12 @@
-#%%
 from datetime import datetime
-from pytz import timezone
+from zoneinfo import ZoneInfo
 from config import get_interpolated_temp  # importar desde config.py
 
 #%%
-local_tz = timezone("America/Mazatlan")
+local_tz = ZoneInfo("America/Mazatlan")
 now = datetime.now().astimezone(local_tz)
+
+print(f"[DEBUG] Hora local Mazatlán: {now.isoformat()}")
 
 try:
     temperatura = get_interpolated_temp(now)
