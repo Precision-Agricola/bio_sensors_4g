@@ -4,6 +4,7 @@ from datetime import datetime
 import random
 import requests
 from bisect import bisect_right
+from zoneinfo import ZoneInfo
 
 DEVICE_IDS = [f"ESP32_{suffix}" for suffix in ["3002EC", "5DAEC4", "5D99C8", "2E57D0"]]
 DATABASE_NAME = "sampleDB"
@@ -19,8 +20,9 @@ def __noise(scale=1.0): return random.gauss(0, scale)
 
 # --- Temperatura interpolada ---
 def get_interpolated_temp(t):
-    fecha = t.strftime("%Y-%m-%d")
-    hora_actual = t.hour
+    local_t = t.astimezone(ZoneInfo("America/Mexico_City"))
+    fecha = local_t.strftime("%Y-%m-%d")
+    hora_actual = local_t.hour
     key = f"{fecha}"
 
     if key not in _temp_day_cache:
@@ -42,7 +44,8 @@ def get_interpolated_temp(t):
 
             horas = data["hourly"]["time"]
             temps = data["hourly"]["temperature_2m"]
-            horas_interes = [5, 6, 7, 9, 11, 13, 15, 16, 18, 21]
+            horas_interes = list(range(0, 24))  # incluir todas las horas
+
             indices_objetivo = [f"{fecha}T{str(h).zfill(2)}:00" for h in horas_interes]
             hs = []
             ts = []
@@ -57,24 +60,26 @@ def get_interpolated_temp(t):
             print(f"[OK] Cached {len(ts)} temps for {fecha}: {ts}")
         except Exception as e:
             print(f"[ERROR] Failed to get temp for {fecha}: {e}")
-            _temp_day_cache[key] = ([], [])  # evita reintentos múltiples
-            return 22 + __noise(1.0)
+            _temp_day_cache[key] = ([], [])
+            return 22 + __noise(0.3)
 
     hs, ts = _temp_day_cache[key]
     if not hs:
-        return 22 + __noise(1.0)
+        return 22 + __noise(0.3)
+
+    if hora_actual < hs[0] or hora_actual > hs[-1]:
+        print(f"[WARN] Hora {hora_actual} fuera del rango {hs[0]}–{hs[-1]}")
+        return ts[0] + __noise(0.3)
 
     if hora_actual in hs:
         return ts[hs.index(hora_actual)]
-    else:
-        idx = bisect_right(hs, hora_actual)
-        h1, h2 = hs[idx - 1], hs[idx % len(hs)]
-        t1, t2 = ts[idx - 1], ts[idx % len(ts)]
-        if h2 < h1:
-            h2 += 24
-        factor = (hora_actual - h1) / (h2 - h1)
-        interpolated = t1 + (t2 - t1) * factor
-        return round(interpolated + __noise(0.3), 2)
+
+    idx = bisect_right(hs, hora_actual)
+    h1, h2 = hs[idx - 1], hs[idx]
+    t1, t2 = ts[idx - 1], ts[idx]
+    factor = (hora_actual - h1) / (h2 - h1)
+    interpolated = t1 + (t2 - t1) * factor
+    return round(interpolated + __noise(0.3), 2)
 
 def is_aerator_on(timestamp):
     return (timestamp.hour % 6) < 3
