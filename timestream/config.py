@@ -10,12 +10,7 @@ DATABASE_NAME = "sampleDB"
 TABLE_NAME = "sampleTable"
 
 _LAT, _LON = 25.78758584457698, -108.89569650966546
-DEVICE_OFFSETS = {
-    "ESP32_5ED9F4": 0.0,
-    "ESP32_653218": 0.4,
-    "ESP32_FEWCD01": -0.3,
-    "ESP32_RF2889": 0.6
-}
+DEVICE_OFFSETS = {device_id: offset for device_id, offset in zip(DEVICE_IDS, [0.0, 0.4, -0.3, 0.6])}
 
 _temp_day_cache = {}
 
