@@ -84,9 +84,14 @@ def get_interpolated_temp(t):
 def is_aerator_on(timestamp):
     return (timestamp.hour % 6) < 3
 
-def generate_sensor_data(t, device_id, external_temp=None):
+def generate_sensor_data(t, device_id, external_temp=None, cycle_id=None):
     random.seed(f"{device_id}-{t}")
-    aerator_on = is_aerator_on(t)
+    
+    if cycle_id is not None:
+        aerator_on = (cycle_id % 2 == 0)
+    else:
+        aerator_on = is_aerator_on(t)  # fallback legacy logic
+
     device_offset = DEVICE_OFFSETS.get(device_id, 0)
 
     if external_temp is None:
@@ -104,9 +109,9 @@ def generate_sensor_data(t, device_id, external_temp=None):
             "ph_value": round(random.uniform(423, 454), 2)
         },
         "RS485 Sensor": {
-            "rs485_temperature": rs485_temp if aerator_on else None,
-            "ambient_temperature": ambient_temp if aerator_on else None,
-            "level": round(random.uniform(-0.027, -0.025), 5) if aerator_on else None
+            "rs485_temperature": rs485_temp,
+            "ambient_temperature": ambient_temp,
+            "level": round(random.uniform(-0.027, -0.025), 5)
         },
         "Pressure": {
             "pressure": round(random.uniform(762, 767), 4),

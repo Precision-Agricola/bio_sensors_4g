@@ -1,9 +1,11 @@
 import time
 import boto3
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from config import DEVICE_IDS, DATABASE_NAME, TABLE_NAME, generate_sensor_data
-from pytz import timezone
-local_tz = timezone("America/Mazatlan")
+
+local_tz = ZoneInfo("America/Mazatlan")
+CYCLE_START_UTC = datetime(2025, 5, 8, 21, 13, tzinfo=timezone.utc)
 
 client = boto3.client("timestream-write")
 SEND_INTERVAL = 20 * 60  # 20 minutos
@@ -14,8 +16,13 @@ FLOAT_FIELDS = [
     "pressure", "altitude", "temperature"
 ]
 
-def convert_row(device_id, data):
-    now_ms = int(datetime.now().timestamp() * 1000)
+def get_cycle_id(timestamp):
+    if timestamp.tzinfo is None:
+        raise ValueError("timestamp must be timezone-aware")
+    delta_min = int((timestamp.astimezone(timezone.utc) - CYCLE_START_UTC).total_seconds() // 60)
+    return delta_min // 180
+
+def convert_row(device_id, data, cycle_id, now_ms):
     dimensions = [{"Name": "device_id", "Value": device_id}]
     records = []
 
@@ -38,29 +45,35 @@ def convert_row(device_id, data):
         "Time": str(now_ms)
     })
 
+    records.append({
+        "Dimensions": dimensions,
+        "MeasureName": "cycle_id",
+        "MeasureValue": str(cycle_id),
+        "MeasureValueType": "BIGINT",
+        "Time": str(now_ms)
+    })
+
     return records
 
 def live_stream():
     while True:
-        now = datetime.now().astimezone(local_tz) 
-        print(f"[INFO] readed time: {now}")
-        print(f"\n[INFO] Generating real-time data @ {now.isoformat()}")
+        now = datetime.now(timezone.utc).astimezone(local_tz)
+        now_ms = int(now.astimezone(timezone.utc).timestamp() * 1000)
+        cycle_id = get_cycle_id(now)
+        cycle_phase = "ON" if (cycle_id % 2 == 0) else "OFF"
+
+        print("="*50)
+        print(f"[DEBUG] Hora local Mazatlán: {now.isoformat()}")
+        print(f"[DEBUG] Hora UTC: {now.astimezone(timezone.utc).isoformat()}")
+        print(f"[DEBUG] now_ms (UTC): {now_ms}")
+        print(f"[DEBUG] Ciclo actual: {cycle_id}")
+        print(f"[DEBUG] Fase: {cycle_phase}")
+        print("="*50)
+
         for device_id in DEVICE_IDS:
             try:
-                data = generate_sensor_data(now, device_id)
-                flat_data = {
-                    "H2S": data["H2S"],
-                    "NH3": data["NH3"],
-                    "ph_value": data["Sensor pH"]["ph_value"],
-                    "rs485_temperature": data["RS485 Sensor"]["rs485_temperature"],
-                    "ambient_temperature": data["RS485 Sensor"]["ambient_temperature"],
-                    "level": data["RS485 Sensor"]["level"],
-                    "pressure": data["Pressure"]["pressure"],
-                    "altitude": data["Pressure"]["altitude"],
-                    "temperature": data["Pressure"]["temperature"],
-                    "aerator_status": data["aerator_status"]
-                }
-                records = convert_row(device_id, flat_data)
+                data = generate_sensor_data(now, device_id, cycle_id=cycle_id)
+                records = convert_row(device_id, data, cycle_id, now_ms)
                 client.write_records(
                     DatabaseName=DATABASE_NAME,
                     TableName=TABLE_NAME,
@@ -68,8 +81,9 @@ def live_stream():
                 )
                 print(f"[OK] Sent data for {device_id}")
             except Exception as e:
-                print(f"[ERROR] {device_id}: {e}")
+                print(f"[ERROR] {device_id}: {repr(e)}")
 
+        print(f"[DEBUG] Data sample: {data}")
         print(f"[WAIT] Sleeping {SEND_INTERVAL} sec...\n")
         time.sleep(SEND_INTERVAL)
 
