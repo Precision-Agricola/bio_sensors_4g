@@ -5,10 +5,10 @@ from zoneinfo import ZoneInfo
 from config import DEVICE_IDS, DATABASE_NAME, TABLE_NAME, generate_sensor_data
 
 local_tz = ZoneInfo("America/Mazatlan")
-CYCLE_START_UTC = datetime(2025, 5, 8, 21, 13, tzinfo=timezone.utc)
+CYCLE_START_UTC = datetime(2025, 5, 11, 16, 15, tzinfo=timezone.utc)
 
 client = boto3.client("timestream-write")
-SEND_INTERVAL = 60 * 60  # 20 minutos
+SEND_INTERVAL = 60 * 60  # 60 min de latencia
 SEND = True # ← cambiar a True cuando quieras enviar
 
 FLOAT_FIELDS = [
