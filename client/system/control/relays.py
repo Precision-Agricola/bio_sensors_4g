@@ -27,7 +27,7 @@ class SensorRelay:
 
 
 class LoadRelay:
-    def __init__(self, pins=(0, 27)):
+    def __init__(self, pins=(33, 27)): #TODO: chang the solid rele to 33 and perform tests
         self.relays = [Pin(p, Pin.OUT, value=0) for p in pins]
 
     def turn_on(self, idx=None):
