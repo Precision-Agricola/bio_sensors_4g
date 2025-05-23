@@ -1,11 +1,12 @@
 import uasyncio as asyncio
 import utime
 import machine
+import network
 from core.access_point import AccessPointManager
 from core import websocket_server
-from utils.logger import log_message
+from core.uart_listener import uart_listener
 from core.aws_forwarding import send_to_aws
-import network
+from utils.logger import log_message
 
 def _get_device_id():
     mac = network.WLAN().config('mac')[-3:]
@@ -17,23 +18,20 @@ PASSWORD = "ag2025pass"
 ENABLE_SCHEDULED_REBOOT = True
 REBOOT_INTERVAL_HOURS = 6
 REBOOT_INTERVAL_MS = REBOOT_INTERVAL_HOURS * 60 * 60 * 1000
-INITIAL_DELAY_S  = 15
+INITIAL_DELAY_S = 15
 
 ap_manager = AccessPointManager(ssid=SSID, password=PASSWORD)
 ap_manager.setup_access_point()
 
-
 async def scheduled_reboot_task():
-    """Tarea que espera REBOOT_INTERVAL_MS y luego reinicia el sistema."""
     log_message(f"Scheduled reboot task started. Reboot in approx. {REBOOT_INTERVAL_HOURS} hours.")
     await asyncio.sleep_ms(REBOOT_INTERVAL_MS)
-
-    log_message(f"Scheduled reboot interval ({REBOOT_INTERVAL_HOURS} hours) reached. Rebooting now...")
+    log_message("Rebooting now...")
     await asyncio.sleep(2)
     machine.reset()
 
 async def main():
-    log_message(f"--- Application Starting ---")
+    log_message("--- Application Starting ---")
     log_message(f"Waiting {INITIAL_DELAY_S} seconds before initializing Watchdog Timer...")
     log_message(">>> You can press CTRL+C in Thonny now to stop <<<")
     await asyncio.sleep(INITIAL_DELAY_S)
@@ -47,6 +45,8 @@ async def main():
 
     if ENABLE_SCHEDULED_REBOOT:
         asyncio.create_task(scheduled_reboot_task())
+
+    asyncio.create_task(uart_listener())  # ← UART async listener agregado
 
     log_message("Starting main application server...")
     device_id = _get_device_id()
