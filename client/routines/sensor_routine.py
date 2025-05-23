@@ -43,6 +43,7 @@ class SensorRoutine:
         return self.scheduler.read_now()
 
     def _send_via_http(self, readings):
+        return self._send_via_uart(readings)
         try:
             gc.collect()
             payload = {
@@ -66,8 +67,19 @@ class SensorRoutine:
             return False
         except Exception as e:
             log_message(f"Error sending via HTTP: {e}")
-            gc.collect()
-            return False
+            return self._send_via_uart(readings)
+
+    def _send_via_uart(self, readings):
+        try:
+            from machine import UART
+            uart = UART(1, tx=0, rx=2, baudrate=9600)
+            uart.write(json.dumps(readings) + "\n")
+            print("UART data sent:", readings)
+            log_message("Data sent via UART")
+            return True
+        except Exception as e:
+            log_message(f"UART send failed: {e}")
+            return False 
 
     def _save_data_callback(self, readings):
         if not readings or 'data' not in readings:
