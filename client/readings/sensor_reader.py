@@ -9,7 +9,7 @@ import sensors.amonia.sen0567
 import sensors.hydrogen_sulfide.sen0568
 import sensors.pressure.bmp3901
 import sensors.ph.ph_sensor
-#import sensors.rs485.rs485_sensor
+import sensors.rs485.rs485_sensor
 
 
 class SensorReader:
