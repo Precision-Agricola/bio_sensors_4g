@@ -38,7 +38,7 @@ async def watchdog_feeder():
     permitiendo que el WDT reinicie el sistema si se queda 'colgado' sin clientes.
     """
     log_message("Watchdog feeder task started.")
-    NO_CLIENT_RESET_DELAY_S = 5 * 60 # 5 minutos: Tiempo sin clientes antes de dejar de alimentar WDT
+    NO_CLIENT_RESET_DELAY_S = 60 * 60 # 5 minutos: Tiempo sin clientes antes de dejar de alimentar WDT
     last_client_seen_time = time.ticks_ms()
 
     while True:

@@ -24,6 +24,7 @@ def log_message(*args):
         message = ' '.join(message_parts)
         timestamp = _get_timestamp()
         log_entry = f"{timestamp} {message}\n"
+        print(log_entry)
         with open(LOG_FILENAME, 'a') as f:
             f.write(log_entry)
 

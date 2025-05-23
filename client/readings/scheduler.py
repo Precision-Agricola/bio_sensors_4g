@@ -93,11 +93,6 @@ class SensorScheduler:
                         off_target = off_start + off_interval
                         off_count = 0
 
-                    if runtime_config.is_reboot_requested():
-                        log_message("!!! Rebooting...")
-                        time.sleep(3)
-                        machine.reset()
-
                 should_read = False
 
                 if state and on_count < 3 and now >= on_target:

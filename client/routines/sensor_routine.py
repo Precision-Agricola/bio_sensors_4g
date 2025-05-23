@@ -2,7 +2,6 @@ import ujson as json
 import gc
 import os
 import time
-import urequests
 from readings.scheduler import SensorScheduler
 from config.secrets import DEVICE_ID
 from utils.logger import log_message
@@ -41,33 +40,6 @@ class SensorRoutine:
     def read_now(self):
         log_message("Performing immediate sensor reading...")
         return self.scheduler.read_now()
-
-    def _send_via_http(self, readings):
-        return self._send_via_uart(readings)
-        try:
-            gc.collect()
-            payload = {
-                "device_id": self.device_id,
-                "timestamp": readings.get("timestamp", 0),
-                "sensors": readings.get("data", readings.get("sensors", {})),
-                "aerator_status": readings.get("aerator_status", "UNKNOWN")
-            }
-            res = urequests.post(
-                "http://192.168.4.1/sensors/data",
-                json=payload,
-                headers={"Content-Type": "application/json"}
-            )
-            status = res.status_code
-            res.close()
-            gc.collect()
-            if status == 200:
-                log_message("Data sent via HTTP successfully")
-                return True
-            log_message(f"HTTP POST failed with status: {status}")
-            return False
-        except Exception as e:
-            log_message(f"Error sending via HTTP: {e}")
-            return self._send_via_uart(readings)
 
     def _send_via_uart(self, readings):
         try:
@@ -110,7 +82,7 @@ class SensorRoutine:
                 with open(path, 'r') as file:
                     data = json.load(file)
 
-                if self._send_via_http(data):
+                if self._send_via_uart(data):
                     os.remove(path)
                     log_message(f"Sent and removed {path}")
                     count += 1
