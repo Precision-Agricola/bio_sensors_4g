@@ -1,0 +1,9 @@
+{
+  "endpoint": "a1neu73ya9bcep-ats.iot.us-east-1.amazonaws.com",
+  "port": 8883,
+  "ca_path": "cert/AmazonRootCA1.pem",
+  "cert_path": "cert/certificate.pem.crt",
+  "key_path": "cert/private.pem.key",
+  "pub_topic_base": "bioiot/control"
+}
+
