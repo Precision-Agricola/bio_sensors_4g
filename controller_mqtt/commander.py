@@ -1,3 +1,5 @@
+# controller_mqtt/commander.py
+
 import asyncio
 import json
 from typing import List, Union, Dict, Any
@@ -15,9 +17,8 @@ class IoTCommander:
         self.client_bootstrap = None
 
     async def connect(self):
-        if self.mqtt_connection and self.mqtt_connection.is_connected():
-            print("Ya conectado al broker MQTT.")
-            return
+        if self.mqtt_connection:
+            print("Ya se creó mqtt_connection. Intentando conectar de nuevo...")
 
         print(f"Iniciando conexión a {self.config.endpoint}...")
         self.event_loop_group = io.EventLoopGroup(1)
@@ -33,17 +34,31 @@ class IoTCommander:
             client_id=self.config.client_id,
             clean_session=False, keep_alive_secs=30
         )
-        await self.mqtt_connection.connect().result()
-        print("¡Conectado exitosamente!")
+
+        try:
+            self.mqtt_connection.connect().result()
+            print("¡Conectado exitosamente!")
+        except Exception as e:
+            print(f"❌ Error en conexión MQTT: {e}")
+            return
 
     async def _publish_command(self, topic: str, command_payload: Dict[str, Any], qos: mqtt.QoS):
-        if not self.mqtt_connection or not self.mqtt_connection.is_connected():
-            print("Error: No conectado. Llame a connect() primero.")
+        if not self.mqtt_connection:
+            print("Error: No hay conexión activa.")
             return
-        message_json = json.dumps(command_payload)
-        print(f"Publicando en '{topic}': {message_json}")
-        await self.mqtt_connection.publish(topic=topic, payload=message_json, qos=qos).result()
-        print("¡Comando publicado!")
+        try:
+            message_json = json.dumps(command_payload)
+            print(f"Publicando en '{topic}': {message_json}")
+            pub_ack_future, _ = self.mqtt_connection.publish(
+                topic=topic,
+                payload=message_json,
+                qos=qos
+            )
+            pub_ack_future.result()  # <--- corregido aquí
+            print("¡Comando publicado!")
+        except Exception as e:
+            print(f"❌ Error publicando mensaje: {e}")
+
 
     async def send_command(self,
                            command_payload: Dict[str, Any],
@@ -61,9 +76,10 @@ class IoTCommander:
             print(f"Error: Tipo de 'target_devices' no válido: {type(target_devices)}.")
 
     async def disconnect(self):
-        if self.mqtt_connection and self.mqtt_connection.is_connected():
-            print("Desconectando...")
-            await self.mqtt_connection.disconnect().result()
-            print("Desconectado.")
-        else:
-            print("No hay conexión activa.")
+        if self.mqtt_connection:
+            try:
+                print("Desconectando...")
+                self.mqtt_connection.disconnect().result()
+                print("Desconectado.")
+            except Exception as e:
+                print(f"Error al desconectar: {e}")
