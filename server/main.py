@@ -1,6 +1,9 @@
+#server/main.py
+
 import uasyncio as asyncio
 from core.uart_listener import uart_listener
 from core.wdt_handler import start_watchdog
+from core.mqtt_listener import listen_for_commands
 from utils.logger import log_message
 
 INITIAL_DELAY_S = 15
@@ -18,7 +21,7 @@ async def main():
     await start_watchdog()
     asyncio.create_task(uart_listener())
     asyncio.create_task(reboot_task())
-
+    asyncio.create_task(listen_for_commands())
     log_message("Server ready. Listening UART and sending to AWS.")
     while True:
         await asyncio.sleep(3600)

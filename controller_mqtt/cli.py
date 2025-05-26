@@ -1,5 +1,8 @@
 # controller_mqtt/cli.py
 
+# TODO: use endpoint from .env or similar, same for client-id etc
+# TODO: create a tkinter interface
+
 import asyncio
 import os
 import argparse
