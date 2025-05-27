@@ -3,6 +3,14 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# sandbox code
+**sandbox**
+
+# certificates
+*.pem
+*.crt
+*.key
+
 # vscode folder
 .vscode/
 

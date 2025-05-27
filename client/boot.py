@@ -28,7 +28,7 @@ DIP_SW1 = Pin(config.BOOT_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
 DIP_SW2 = Pin(config.TEST_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
 EMG_RELAYS = (Pin(config.AERATOR_PIN_A, Pin.OUT), Pin(config.AERATOR_PIN_B, Pin.OUT))
 
-DEMO_TIME_FACTOR = 10
+DEMO_TIME_FACTOR = 60
 
 def set_system_mode(mode, time_factor=1):
     config.set_mode(mode)

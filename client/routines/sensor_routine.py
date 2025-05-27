@@ -5,6 +5,7 @@ import time
 from readings.scheduler import SensorScheduler
 from config.secrets import DEVICE_ID
 from utils.logger import log_message
+from utils.uart import uart
 
 class SensorRoutine:
     def __init__(self, data_folder="data", device_id=DEVICE_ID):
@@ -43,15 +44,14 @@ class SensorRoutine:
 
     def _send_via_uart(self, readings):
         try:
-            from machine import UART
-            uart = UART(1, tx=0, rx=2, baudrate=9600)
+            readings["device_id"] = self.device_id
             uart.write(json.dumps(readings) + "\n")
             print("UART data sent:", readings)
             log_message("Data sent via UART")
             return True
         except Exception as e:
             log_message(f"UART send failed: {e}")
-            return False 
+            return False
 
     def _save_data_callback(self, readings):
         if not readings or 'data' not in readings:
