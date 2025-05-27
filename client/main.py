@@ -3,6 +3,7 @@ from machine import WDT
 import config.runtime as config
 from utils.logger import log_message
 from utils.init import system_setup
+from system.uart_listener import uart_listener
 
 wdt = WDT(timeout=1000 * 60 * 5)
 
@@ -15,6 +16,7 @@ async def run_async_mode(sensor_routine):
     from utils.retry_loop import retry_loop
     asyncio.create_task(feed_watchdog())
     asyncio.create_task(retry_loop(sensor_routine))
+    asyncio.create_task(uart_listener())
     while True:
         await asyncio.sleep(60)
 
