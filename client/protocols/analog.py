@@ -1,3 +1,5 @@
+# client/protocols/analog.py
+
 class AnalogInput:
     def __init__(self, pin):
         from machine import ADC, Pin
