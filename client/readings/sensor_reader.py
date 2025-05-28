@@ -41,11 +41,12 @@ def read_i2c_sensors():
     return readings
 
 def read_analog_sensors():
-    print(f"Reading PH...")
     from sensors.ph.ph_sensor import PHSensor
     try:
-        ph_sensor = PHSensor(name="Sensor pH", model="PH", protocol="ANALOG", vin=3.3, signal=32)
-        return {"Sensor pH": ph_sensor.read()}
+        ph_sensor = PHSensor()
+        value = ph_sensor.read()
+        print(f"DEBUG ph read value: {value}")  # <-- Debug temporal
+        return {ph_sensor.name: value}
     except Exception as e:
         log_message("Analog sensor read error", e)
         return {}
