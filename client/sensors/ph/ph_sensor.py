@@ -5,11 +5,17 @@ import config.runtime as runtime_config
 import time
 
 class PHSensor:
-    def __init__(self, signal=32):
+    def __init__(self, name="Sensor pH", signal=32):
+        self.name = name
+        self.signal = signal
         self.analog = AnalogInput(signal)
 
     def read(self):
-        time_factor = runtime_config.get_speed()
+        try:
+            time_factor = runtime_config.get_speed()
+        except:
+            time_factor = 1  # fallback en caso de error
+
         interval = 10 / time_factor
         samples = [self.analog.read() for _ in range(10)]
         time.sleep(interval)
