@@ -1,11 +1,9 @@
+# client/sensors/hydrogen_sulfide/sen0568.py
+
 from sensors.base import Sensor, register_sensor
-from protocols.analog import AnalogInput
+from protocols.adc_mux import read_adc_channel 
 
 @register_sensor("H2S", "ANALOG")
 class H2SSensor(Sensor):
-    def _init_hardware(self):
-        self.analog = AnalogInput(self.signal)  # signal = pin number, e.g., 0
-        self._initialized = True
-
     def _read_implementation(self):
-        return self.analog.read()
+        return read_adc_channel(self.signal)

@@ -1,105 +1,85 @@
-import json
-import time
-from sensors.base import sensor_registry
-from system.control.relays import SensorRelay
+# client/readings/sensor_reader.py
+
 from utils.logger import log_message
+from utils.ads1x15 import ADS1115
+from utils.micropython_bmpxxx.bmpxxx import BMP390
+from machine import Pin, SoftI2C
+import time
 
-from calendar.rtc_manager import RTCManager
-import sensors.amonia.sen0567
-import sensors.hydrogen_sulfide.sen0568
-import sensors.pressure.bmp3901
-import sensors.ph.ph_sensor
-import sensors.rs485.rs485_sensor
+# Config I2C pins
+from config.config import I2C_SCL_PIN, I2C_SDA_PIN
 
+def read_i2c_sensors():
+    readings = {}
+    try:
+        i2c = SoftI2C(scl=Pin(I2C_SCL_PIN), sda=Pin(I2C_SDA_PIN))
+
+        # BMP390 (assume 0x77 or 0x76)
+        bmp = None
+        for addr in [0x77, 0x76]:
+            try:
+                bmp = BMP390(i2c=i2c, address=addr)
+                readings['Pressure'] = {
+                    "pressure": bmp.pressure,
+                    "temperature": bmp.temperature,
+                    "altitude": bmp.altitude
+                }
+                break
+            except:
+                continue
+
+        # ADS1115 channels (NH3 on CH1, H2S on CH0)
+        try:
+            adc = ADS1115(i2c)
+            readings['NH3'] = adc.read(rate=4, channel1=1)
+            readings['H2S'] = adc.read(rate=4, channel1=0)
+        except Exception as e:
+            log_message("ADS1115 read error", e)
+
+    except Exception as e:
+        log_message("I2C read error", e)
+    return readings
+
+def read_analog_sensors():
+    print(f"Reading PH...")
+    from sensors.ph.ph_sensor import PHSensor
+    try:
+        ph_sensor = PHSensor(name="Sensor pH", model="PH", protocol="ANALOG", vin=3.3, signal=32)
+        return {"Sensor pH": ph_sensor.read()}
+    except Exception as e:
+        log_message("Analog sensor read error", e)
+        return {}
+
+def read_rs485_sensors():
+    from sensors.rs485.rs485_sensor import RS485Sensor
+    try:
+        sensor = RS485Sensor(name="RS485 Sensor", model="RS485_SENSOR", protocol="MODBUS", vin=12, bus_num=2, signal=13, address=1)
+        return {"RS485 Sensor": sensor.read()}
+    except Exception as e:
+        log_message("RS485 sensor read error", e)
+        return {}
+
+def get_timestamp():
+    from calendar.rtc_manager import RTCManager
+    try:
+        rtc = RTCManager()
+        t = rtc.get_time_tuple()
+        return "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(*t[:6]) if t else "RTC_READ_ERROR"
+    except:
+        return "RTC_UNAVAILABLE"
 
 class SensorReader:
-    def __init__(self, config_path="config/sensors.json", settling_time=30):
-        self.config_path = config_path
-        self.sensors = []
-        self.sensor_relay = SensorRelay()
-        self.settling_time = settling_time
+    def __init__(self):
         self.last_readings = {}
-        self.rtc_manager = self._init_rtc_manager()
-        self.load_sensors()
 
-    def _init_rtc_manager(self):
-        try:
-            rtc = RTCManager()
-            if not (rtc and rtc.rtc):
-                log_message("WARN:", "RTCManager hardware init fallido.")
-                return None
-            return rtc
-        except Exception as e:
-            log_message("ERROR:", "RTCManager init:", e)
-            return None
-
-    def load_sensors(self):
-        try:
-            with open(self.config_path, 'r') as f:
-                sensor_configs = json.load(f)
-        except Exception as e:
-            log_message("ERROR:", f"No se pudo cargar '{self.config_path}':", e)
-            return
-
-        for config in sensor_configs:
-            try:
-                key = (config["model"].upper(), config["protocol"].upper())
-                sensor_class = sensor_registry.get(key)
-                if not sensor_class:
-                    log_message("WARN:", f"Sensor no registrado: {key}")
-                    continue
-                sensor = sensor_class(**config)
-                self.sensors.append(sensor)
-            except KeyError as e:
-                log_message("ERROR:", f"Falta clave {e} en config: {config.get('name', 'desconocido')}")
-            except Exception as e:
-                log_message("ERROR:", f"Creando sensor {config.get('name', 'desconocido')}: {e}")
-
-    def read_sensors(self, relay='A', custom_settling_time=None, aerator_state=None):
-        settling = custom_settling_time if custom_settling_time is not None else self.settling_time
+    def read_sensors(self):
         readings = {}
-        successful_sensors = []
-
-        try:
-            self.sensor_relay.activate_a()
-            time.sleep(settling)
-
-            for sensor in self.sensors:
-                if not getattr(sensor, '_initialized', True):
-                    continue
-                try:
-                    result = sensor.read()
-                    if result is not None:
-                        readings[getattr(sensor, 'name', 'desconocido')] = result
-                        successful_sensors.append(sensor)
-                except Exception as e:
-                    log_message("ERROR:", f"Lectura fallida: {sensor.name}", e)
-        except Exception as e:
-            log_message("ERROR:", "Fallo en activación o lectura de sensores:", e)
-        finally:
-            try:
-                self.sensor_relay.deactivate_all()
-            except Exception as e:
-                log_message("ERROR:", "Fallo desactivando relays:", e)
-
-        timestamp = self._get_timestamp()
+        readings.update(read_i2c_sensors())
+        readings.update(read_analog_sensors())
+        #readings.update(read_rs485_sensors())
+        timestamp = get_timestamp()
         self.last_readings = {"timestamp": timestamp, "data": readings}
-        if aerator_state is not None:
-            self.last_readings['aerator_status'] = "ON" if aerator_state else "OFF"
-        log_message("INFO:", f"Lectura completada ({len(successful_sensors)} sensores). Timestamp: {timestamp}")
         return self.last_readings
-
-    def _get_timestamp(self):
-        if self.rtc_manager:
-            try:
-                t = self.rtc_manager.get_time_tuple()
-                if t:
-                    return "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(*t[:6])
-                return "RTC_READ_ERROR"
-            except Exception as e:
-                log_message("ERROR:", "RTCManager timestamp error:", e)
-                return "RTC_EXCEPTION"
-        return "RTC_UNAVAILABLE"
 
     def get_last_readings(self):
         return self.last_readings

@@ -1,3 +1,5 @@
+# client/config/sensors_config.py
+
 import json
 from sensors.base import sensor_registry
 from utils.logger import log_message
