@@ -7,8 +7,8 @@ from config import runtime as runtime_config
 from utils.logger import log_message
 
 class SensorScheduler:
-    def __init__(self, settling_time=5):
-        self.reader = SensorReader(settling_time=settling_time)
+    def __init__(self):
+        self.reader = SensorReader()
         self.running = False
         self.thread_id = None
         self.last_reading_time = 0

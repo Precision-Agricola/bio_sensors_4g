@@ -1,24 +1,23 @@
 # sensors/ph/ph_sensor.py
 
-from sensors.base import Sensor, register_sensor
 from protocols.analog import AnalogInput
 import config.runtime as runtime_config
 import time
 
-@register_sensor("PH", "ANALOG")
-class PhSensor(Sensor):
-    def _init_hardware(self):
-        self.analog = AnalogInput(32)  # GPIO32
-        self._initialized = True
+class PHSensor:
+    def __init__(self, name="Sensor pH", signal=32):
+        self.name = name
+        self.signal = signal
+        self.analog = AnalogInput(signal)
 
-    def _read_implementation(self):
-        time_factor = runtime_config.get_speed()
-        interval = 10 / time_factor  # tiempo total ajustado dividido en 10 muestras
-        samples = []
+    def read(self):
+        try:
+            time_factor = runtime_config.get_speed()
+        except:
+            time_factor = 1  # fallback en caso de error
 
-        for _ in range(10):
-            samples.append(self.analog.read())
-            time.sleep(interval / 10)
-
+        interval = 10 / time_factor
+        samples = [self.analog.read() for _ in range(10)]
+        time.sleep(interval)
         avg = sum(samples) / len(samples)
         return {"ph_value": avg}

@@ -9,7 +9,7 @@ from utils.uart import uart
 
 class SensorRoutine:
     def __init__(self, data_folder="data", device_id=DEVICE_ID):
-        self.scheduler = SensorScheduler(settling_time=15)
+        self.scheduler = SensorScheduler()
         self.data_folder = data_folder
         self.device_id = device_id
         self._retry_flag = False
