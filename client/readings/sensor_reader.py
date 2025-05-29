@@ -45,7 +45,6 @@ def read_analog_sensors():
     try:
         ph_sensor = PHSensor()
         value = ph_sensor.read()
-        print(f"DEBUG ph read value: {value}")  # <-- Debug temporal
         return {ph_sensor.name: value}
     except Exception as e:
         log_message("Analog sensor read error", e)
@@ -54,7 +53,7 @@ def read_analog_sensors():
 def read_rs485_sensors():
     from sensors.rs485.rs485_sensor import RS485Sensor
     try:
-        sensor = RS485Sensor(name="RS485 Sensor", model="RS485_SENSOR", protocol="MODBUS", vin=12, bus_num=2, signal=13, address=1)
+        sensor = RS485Sensor()
         return {"RS485 Sensor": sensor.read()}
     except Exception as e:
         log_message("RS485 sensor read error", e)
@@ -73,13 +72,21 @@ class SensorReader:
     def __init__(self):
         self.last_readings = {}
 
-    def read_sensors(self):
+    def read_sensors(self, aerator_state=None):
         readings = {}
         readings.update(read_i2c_sensors())
         readings.update(read_analog_sensors())
-        #readings.update(read_rs485_sensors())
+        # readings.update(read_rs485_sensors())
+
         timestamp = get_timestamp()
-        self.last_readings = {"timestamp": timestamp, "data": readings}
+        self.last_readings = {
+            "timestamp": timestamp,
+            "data": readings
+        }
+
+        if aerator_state is not None:
+            self.last_readings["aerator_status"] = "ON" if aerator_state else "OFF"
+
         return self.last_readings
 
     def get_last_readings(self):
