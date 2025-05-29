@@ -1,21 +1,21 @@
 # sensors/rs485/rs485_sensor.py
 
 from machine import UART, Pin
-import time
-import struct
+import time, struct
 from utils.logger import log_message
+from config.sensor_params import RS485_TX, RS485_RX, RS485_DE_RE
 
 class RS485Sensor:
     def __init__(self):
-        Pin(3, Pin.IN, Pin.PULL_UP)
-        self.uart = UART(2, baudrate=9600, tx=1, rx=3)
-        self.de_re = Pin(22, Pin.OUT)
+        Pin(RS485_RX, Pin.IN, Pin.PULL_UP)
+        self.uart = UART(2, baudrate=9600, tx=RS485_TX, rx=RS485_RX)
+        self.de_re = Pin(RS485_DE_RE, Pin.OUT)
         self.de_re.off()
 
         self.commands = [
-            b'\x01\x03\x04\x0a\x00\x02\xE5\x39',  # Level
-            b'\x01\x03\x04\x08\x00\x02\x44\xF9',  # RS485 Temp
-            b'\x01\x03\x04\x0c\x00\x02\x05\x38'   # Ambient Temp
+            b'\x01\x03\x04\x0a\x00\x02\xE5\x39',
+            b'\x01\x03\x04\x08\x00\x02\x44\xF9',
+            b'\x01\x03\x04\x0c\x00\x02\x05\x38'
         ]
 
         self.valid_ranges = {
@@ -37,27 +37,25 @@ class RS485Sensor:
             log_message(f"RS485 send error: {e}")
             return None
 
-    def _decode(self, response):
-        if not response or len(response) < 7:
-            return None
+    def _decode(self, resp):
+        if not resp or len(resp) < 7: return None
         try:
-            if len(response) == 9 and response[0] == 0x01 and response[1] == 0x03:
-                return struct.unpack('>f', response[3:7])[0]
-            return None
+            if resp[:3] == b'\x01\x03\x04':
+                return struct.unpack('>f', resp[3:7])[0]
         except Exception as e:
             log_message(f"RS485 decode error: {e}")
-            return None
+        return None
 
-    def _get_reading(self, cmd, param, attempts=5):
-        valid = []
+    def _get_reading(self, cmd, param, attempts=3):
+        vals = []
         for _ in range(attempts):
             val = self._decode(self._send(cmd))
             if val is not None:
                 min_v, max_v = self.valid_ranges.get(param, (-1e10, 1e10))
                 if min_v <= val <= max_v and abs(val) > 1e-10:
-                    valid.append(val)
+                    vals.append(val)
             time.sleep_ms(200)
-        return sorted(valid)[len(valid)//2] if valid else None
+        return sorted(vals)[len(vals)//2] if vals else None
 
     def read(self):
         return {
