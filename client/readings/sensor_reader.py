@@ -1,3 +1,5 @@
+# client/readings/sensor_reader.py
+
 from readings.i2c_readings import read_i2c_sensors
 from readings.analog_readings import read_analog_sensors
 from readings.rs485_readings import read_rs485_sensors

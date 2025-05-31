@@ -3,6 +3,7 @@
 from utils.logger import log_message
 from machine import Pin, SoftI2C
 from config.config import I2C_SCL_PIN, I2C_SDA_PIN
+from time import sleep
 
 def read_i2c_sensors():
     readings = {}
@@ -41,6 +42,20 @@ def read_i2c_sensors():
         readings["H2S"] = adc.read(rate=4, channel1=0)
     except Exception as e:
         log_message("Error leyendo ADS1115", e)
+
+    # --- Sensor SCD41 (CO2 - version de código fuente /peter-l5/adafruit hardware)
+    # TODO: test pending due not hardware available at the moment this code was created 
+    try:
+        from utils.scd4x import SCD4X
+        scd = SCD4X(i2c)
+        scd.start_periodic_measurement()
+        sleep(2)
+        if scd.data_ready:
+            readings["SCD41"] = {
+                "CO2": scd.CO2,
+            }
+    except Exception as e:
+        log_message("Error leyendo SCD41", e)
 
     # --- Agrega aquí más sensores I2C manualmente ---
     # try:

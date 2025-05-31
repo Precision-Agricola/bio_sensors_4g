@@ -1,3 +1,5 @@
+# client/main.py
+
 import uasyncio as asyncio
 from machine import WDT
 import config.runtime as config
@@ -14,9 +16,12 @@ async def feed_watchdog():
 
 async def run_async_mode(sensor_routine):
     from utils.retry_loop import retry_loop
+    from system.control.switch_control import monitor_switch
+
     asyncio.create_task(feed_watchdog())
     asyncio.create_task(retry_loop(sensor_routine))
     asyncio.create_task(uart_listener())
+    asyncio.create_task(monitor_switch())
     while True:
         await asyncio.sleep(60)
 
