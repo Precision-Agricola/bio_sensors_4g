@@ -1,8 +1,8 @@
 # client/system/control/relays.py
 
 from machine import Pin
+from config import runtime as runtime_config
 import time
-from config import runtime_config
 
 class SensorRelay:
     def __init__(self, pin_a=13, pin_b=14):
