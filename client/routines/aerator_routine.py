@@ -1,9 +1,10 @@
-# client/routines/aerator_routine.py
-
 from system.control.relays import LoadRelay
 import config.runtime as runtime_config
 import time
 from utils.logger import log_message
+
+def turn_complementary(relays, idx):
+    relays.turn_on(idx)
 
 def turn_on_aerators(wdt=None):
     log_message("Initializing aerator routine with persistent config...")
@@ -24,12 +25,12 @@ def turn_on_aerators(wdt=None):
 
     try:
         while True:
-            log_message(f"Aerador {idx} ON")
-            relays.turn_on(idx)
+            log_message(f"Aerador {idx} ON (complementario OFF)")
+            turn_complementary(relays, idx)
             _wait(on_time, wdt)
 
-            relays.turn_off(idx)
-            log_message(f"Aerador {idx} OFF")
+            log_message(f"Aerador {idx} OFF (complementario ON)")
+            turn_complementary(relays, 1 - idx)
             _wait(off_time, wdt)
 
             idx = 1 - idx
@@ -42,4 +43,3 @@ def _wait(secs, wdt=None):
     while time.time() - t0 < secs:
         if wdt: wdt.feed()
         time.sleep(1)
- 
