@@ -43,20 +43,6 @@ def read_i2c_sensors():
     except Exception as e:
         log_message("Error leyendo ADS1115", e)
 
-    # --- Sensor SCD41 (CO2 - version de código fuente /peter-l5/adafruit hardware)
-    # TODO: test pending due not hardware available at the moment this code was created 
-    try:
-        from utils.scd4x import SCD4X
-        scd = SCD4X(i2c)
-        scd.start_periodic_measurement()
-        sleep(2)
-        if scd.data_ready:
-            readings["SCD41"] = {
-                "CO2": scd.CO2,
-            }
-    except Exception as e:
-        log_message("Error leyendo SCD41", e)
-
     # --- Agrega aquí más sensores I2C manualmente ---
     # try:
     #     from sensors.i2c.xyz_sensor import XYZSensor

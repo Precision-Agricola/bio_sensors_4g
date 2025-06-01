@@ -6,6 +6,7 @@ import config.runtime as config
 from utils.logger import log_message
 from utils.init import system_setup
 from system.uart_listener import uart_listener
+from system.status.indicator import set_status
 
 wdt = WDT(timeout=1000 * 60 * 5)
 
@@ -17,11 +18,13 @@ async def feed_watchdog():
 async def run_async_mode(sensor_routine):
     from utils.retry_loop import retry_loop
     from system.control.switch_control import monitor_switch
+    from system.status.indicator import status_loop
 
     asyncio.create_task(feed_watchdog())
     asyncio.create_task(retry_loop(sensor_routine))
     asyncio.create_task(uart_listener())
     asyncio.create_task(monitor_switch())
+    asyncio.create_task(status_loop())
     while True:
         await asyncio.sleep(60)
 
@@ -31,11 +34,15 @@ def start_sensor_cycle():
 
     from routines.sensor_routine import SensorRoutine
     import _thread
-    from routines.aerator_3hr import turn_on_aerators
+    from routines.aerator_routine import turn_on_aerators
 
     sensor_routine = SensorRoutine()
     sensor_routine.start()
     _thread.start_new_thread(turn_on_aerators, (wdt,))
+
+    set_status("ok")
+    log_message("Estado OK: sistema operativo")
+
     asyncio.run(run_async_mode(sensor_routine))
 
 def main():
