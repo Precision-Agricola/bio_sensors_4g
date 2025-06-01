@@ -31,7 +31,7 @@ def start_sensor_cycle():
 
     from routines.sensor_routine import SensorRoutine
     import _thread
-    from routines.aerator_3hr import turn_on_aerators
+    from routines.aerator_routine import turn_on_aerators
 
     sensor_routine = SensorRoutine()
     sensor_routine.start()
