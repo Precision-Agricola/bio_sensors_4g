@@ -10,6 +10,9 @@ def set_status(mode):
     global _status_mode
     _status_mode = mode
 
+def get_status():
+    return _status_mode
+
 async def status_loop():
     while True:
         if _status_mode == "ok":

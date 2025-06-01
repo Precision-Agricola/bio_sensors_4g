@@ -18,7 +18,7 @@ async def feed_watchdog():
 async def run_async_mode(sensor_routine):
     from utils.retry_loop import retry_loop
     from system.control.switch_control import monitor_switch
-    from system.status.indicator import status_loop, set_status
+    from system.status.indicator import status_loop
 
     asyncio.create_task(feed_watchdog())
     asyncio.create_task(retry_loop(sensor_routine))
