@@ -10,12 +10,12 @@ from pico_lte.utils.status import Status
 from mqtt_commands.params import ParamsCommand
 from mqtt_commands.reset import ResetCommand
 from mqtt_commands.update import UpdateCommand
+from config.device_info import DEVICE_ID
 
 def get_mac_suffix():
     mac = machine.unique_id()
     return ''.join('{:02x}'.format(b) for b in mac[-3:]).upper()
 
-DEVICE_ID = f"ESP32_{get_mac_suffix()}"
 SUB_TOPICS = [
     (f"bioiot/control/{DEVICE_ID}", 1),
     ("bioiot/control/all", 1)

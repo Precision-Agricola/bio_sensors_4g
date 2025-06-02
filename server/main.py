@@ -5,6 +5,8 @@ from core.uart_listener import uart_listener
 from core.wdt_handler import start_watchdog
 from core.mqtt_listener import listen_for_commands
 from utils.logger import log_message
+from core.aws_forwarding import send_to_aws
+from config.device_info import DEVICE_ID 
 
 INITIAL_DELAY_S = 15
 REBOOT_HOURS = 6
@@ -17,12 +19,12 @@ async def reboot_task():
 async def main():
     log_message("Server booted. Waiting REPL window...")
     await asyncio.sleep(INITIAL_DELAY_S)
-
-    await start_watchdog()
+    send_to_aws({"device_id": DEVICE_ID, "event": "boot"})
     asyncio.create_task(uart_listener())
     asyncio.create_task(reboot_task())
     asyncio.create_task(listen_for_commands())
     log_message("Server ready. Listening UART and sending to AWS.")
+    await start_watchdog()
     while True:
         await asyncio.sleep(3600)
 
