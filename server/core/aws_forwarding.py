@@ -23,12 +23,11 @@ def send_to_aws(data):
         return False
     
     try:
-        payload_json = {
-            "device_id": data.get("device_id", "unknown"),
-            "timestamp": data.get("timestamp", 0),
-            "sensor_data": data.get("data", {}),
-            "aerator_status":data.get("aerator_status", "unreachable")
-        }
+        payload_json = {}
+
+        for k, v in data.items():
+            payload_json[k] = v
+
         payload = json.dumps(payload_json)
         
         retry_count = 3
