@@ -7,7 +7,7 @@ from config.config import SWITCH_PIN, RECIRCULATION_POMP_PIN
 switch_pin = Pin(SWITCH_PIN, Pin.IN, Pin.PULL_UP)
 recirculation_pomp = Pin(RECIRCULATION_POMP_PIN, Pin.OUT)
 
-POLL_INTERVAL = 0.01 
+POLL_INTERVAL = 0.01
 DEBOUNCE_COUNT = 5
 
 async def monitor_switch():
