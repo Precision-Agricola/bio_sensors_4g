@@ -4,7 +4,7 @@ from machine import Pin
 import uasyncio as asyncio
 from config.config import SWITCH_PIN, RECIRCULATION_POMP_PIN
 
-switch_pin = Pin(SWITCH_PIN, Pin.IN, Pin.PULL_UP)
+switch_pin = Pin(SWITCH_PIN, Pin.IN, Pin.PULL_DOWN)
 recirculation_pomp = Pin(RECIRCULATION_POMP_PIN, Pin.OUT)
 
 POLL_INTERVAL = 0.01
@@ -25,7 +25,7 @@ async def monitor_switch():
                     consistent = False
                     break
             if consistent:
-                if state == 0:
+                if state == 1:
                     pump_on = not pump_on
                 else:
                     pump_on = pump_on
