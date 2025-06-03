@@ -34,6 +34,24 @@ def read_i2c_sensors():
     except Exception as e:
         log_message("Error leyendo BMP390", e)
 
+    # --- Sensor SCD41 (CO2, temperatura, humedad) ---
+    try:
+        from utils.scd4x import SCD4x
+        scd = SCD4x(i2c)
+        scd.start_periodic()
+        sleep(5)
+        if scd.data_ready():
+            co2, temp, hum = scd.read_measurement()
+            readings["SCD41"] = {
+                "co2_scd": co2,
+                "temperature_scd": temp,
+                "humidity_scd": hum
+            }
+        else:
+            log_message("SCD41: Datos no listos")
+    except Exception as e:
+        log_message("Error leyendo SCD41", e)
+
     # --- Sensor ADS1115 (NH3 canal 1, H2S canal 0) ---
     try:
         from utils.ads1x15 import ADS1115
