@@ -38,8 +38,9 @@ def read_i2c_sensors():
     try:
         from utils.scd4x import SCD4x
         scd = SCD4x(i2c)
+        scd.stop_periodic()
         scd.start_periodic()
-        sleep(5)
+        sleep(8)
         if scd.data_ready():
             co2, temp, hum = scd.read_measurement()
             readings["SCD41"] = {
