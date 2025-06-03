@@ -1,22 +1,21 @@
-from machine import I2C, Pin
-from utils.scd4x import SCD4x
-import time
+from machine import SoftI2C, Pin
+from time import sleep
+from utils.scd4x import SCD4X
 
-i2c = I2C(0, scl=Pin(22), sda=Pin(21))  # ajusta pines según tu hardware
-scd = SCD4x(i2c)
+i2c = SoftI2C(scl=Pin(23), sda=Pin(31))
+scd = SCD4X(i2c)
 
-scd.stop_periodic()
+print("Iniciando sensor...")
+scd.stop_periodic_measurement()
 scd.reinit()
-scd.start_periodic()
+scd.factory_reset()
+scd.start_periodic_measurement()
 
-print("Esperando datos del sensor...")
-time.sleep(10)
+sleep(10)
 
-if scd.data_ready():
-    co2, temp, hum = scd.read_measurement()
-    print("CO2:", co2, "ppm")
-    print("Temp:", temp, "°C")
-    print("Humedad:", hum, "%")
+if scd.data_ready:
+    print("CO2:", scd.CO2, "ppm")
+    print("Temp:", scd.temperature, "°C")
+    print("Humedad:", scd.relative_humidity, "%")
 else:
-    print("Datos no listos aún.")
-
+    print("Datos no listos aún")
