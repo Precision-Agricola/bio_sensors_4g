@@ -1,17 +1,16 @@
+# tests/test_co2.py
+
 from machine import SoftI2C, Pin
-from time import sleep
 from utils.scd4x import SCD4X
+from time import sleep
 
 i2c = SoftI2C(scl=Pin(23), sda=Pin(31))
 scd = SCD4X(i2c)
 
-print("Iniciando sensor...")
-scd.stop_periodic_measurement()
-scd.reinit()
-scd.factory_reset()
 scd.start_periodic_measurement()
+print("Esperando datos...")
 
-sleep(10)
+sleep(10)  # espera inicial
 
 if scd.data_ready:
     print("CO2:", scd.CO2, "ppm")
@@ -19,3 +18,4 @@ if scd.data_ready:
     print("Humedad:", scd.relative_humidity, "%")
 else:
     print("Datos no listos aún")
+
