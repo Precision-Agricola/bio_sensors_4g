@@ -1,33 +1,44 @@
 from machine import Pin, I2C
 from time import sleep
-from utils.scd4x import SCD4x  # asegúrate de que el path sea correcto
+from client.utils.scd4x import SCD4x  # ajusta ruta si es necesario
 
-# --- Inicializar I2C y sensor ---
-i2c = I2C(0, scl=Pin(23), sda=Pin(21))
-sensor = SCD4x(i2c)
+# I2C setup (ajusta pines si usas otros)
+i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=100000)
+scd = SCD4x(i2c)
 
-# --- Detener medición previa, reiniciar, y configurar auto-calibración ---
-sensor.stop_periodic()
-sensor.reinit()
+# Reinicio del sensor
+scd.stop_periodic()
+scd.reinit()
 sleep(1)
 
-sensor.set_auto_calibration(True)
-print("Auto-calibración activada:", sensor.get_auto_calibration())
+# Activar autocalibración y guardar en EEPROM
+scd.set_auto_calibration(True)
+scd.persist_settings()
 
-sensor.persist_settings()
-print("Configuración persistente guardada")
+# Verificar autocalibración
+print("Auto-calibración activa:", scd.get_auto_calibration())
 
-# --- Iniciar medición periódica ---
-sensor.start_periodic()
-print("Esperando datos...")
+# Leer número de serie
+try:
+    sn = scd.read_serial_number()
+    print("Serial:", hex(sn))
+except Exception as e:
+    print("Error leyendo serial:", e)
 
-# --- Esperar estabilidad y leer varias veces ---
-sleep(10)
+# Iniciar lectura periódica
+scd.start_periodic()
+print("Esperando datos del sensor...")
+sleep(10)  # espera inicial
+
+# Lecturas continuas
 for i in range(5):
-    if sensor.data_ready():
-        co2, temp, hum = sensor.read_measurement()
-        print(f"[{i+1}] CO2: {co2} ppm | Temp: {temp:.2f} °C | RH: {hum:.2f} %")
+    if scd.data_ready():
+        try:
+            co2, temp, hum = scd.read_measurement()
+            print(f"[{i+1}] CO₂: {co2} ppm | T: {temp:.2f}°C | RH: {hum:.2f}%")
+        except Exception as e:
+            print("Error de lectura:", e)
     else:
-        print(f"[{i+1}] Aún no hay datos listos")
+        print(f"[{i+1}] Datos no listos")
     sleep(5)
 
