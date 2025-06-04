@@ -16,7 +16,7 @@ def read_analog_sensors():
     # --- Sensor de flujo YF-B1 ---
     try:
         from sensors.flow.flow import PulseFlowSensor
-        flow_sensor = PulseFlowSensor(signal=16, model="YF-B1")
+        flow_sensor = PulseFlowSensor(model="YF-B1")
         readings[flow_sensor.name] = flow_sensor.read()
     except Exception as e:
         log_message("Error leyendo sensor de flujo", e)
