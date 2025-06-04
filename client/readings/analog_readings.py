@@ -1,3 +1,5 @@
+# client/readings/analog_readings.py
+
 from utils.logger import log_message
 
 def read_analog_sensors():
