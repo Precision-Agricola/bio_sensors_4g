@@ -41,7 +41,7 @@ def send_to_aws(data):
                 led.toggle()
                 return True
             else:
-                log_message(f"Attempt {attempt}: Error sending data to AWS IoT Core: {result}")
+                log_message(f"Attempt {attempt}: Error sending data to AWS IoT Core")
                 time.sleep(1)
         
         return False
