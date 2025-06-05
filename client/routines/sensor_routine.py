@@ -9,7 +9,7 @@ from config.secrets import DEVICE_ID
 from utils.logger import log_message
 from utils.uart import uart
 from system.status.indicator import get_status
-from config.runtime import get_mode()
+from config.runtime import get_mode
 
 OPERATION_MODE =  get_mode()
 
