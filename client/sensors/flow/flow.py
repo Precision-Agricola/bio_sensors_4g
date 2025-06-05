@@ -6,7 +6,7 @@ from config.sensor_params import LIQUID_FLOW
 import time
 
 class PulseFlowSensor:
-    def __init__(self, name="liquid flow", signal=LIQUID_FLOW, model="YF-B1"):
+    def __init__(self, name="liquid_flow", signal=LIQUID_FLOW, model="YF-B1"):
         self.name = name
         self.signal = signal
         self.model = model
