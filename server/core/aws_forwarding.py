@@ -30,7 +30,7 @@ def send_to_aws(data):
         for k, v in data.items():
             payload_json[k] = v
 
-        payload_json["device_id"] = DEVICE_ID # Server ID & client ID in payload
+        payload_json["server_id"] = DEVICE_ID # Server ID & client ID in payload
 
         payload = json.dumps(payload_json)
         retry_count = 3
