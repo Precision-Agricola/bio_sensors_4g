@@ -1,9 +1,11 @@
 # broker/core/aws_forwarding.py
+
 import json
 from pico_lte.core import PicoLTE
 from machine import Pin
 import time
 from utils.logger import log_message
+from config.device_info import DEVICE_ID
 
 # LED for status indication
 led = Pin("LED", Pin.OUT)
@@ -28,8 +30,9 @@ def send_to_aws(data):
         for k, v in data.items():
             payload_json[k] = v
 
+        payload_json["device_id"] = DEVICE_ID # Server ID & client ID in payload
+
         payload = json.dumps(payload_json)
-        
         retry_count = 3
         for attempt in range(1, retry_count+1):
             result = picoLTE.aws.publish_message(payload)
@@ -47,4 +50,3 @@ def send_to_aws(data):
         import sys
         sys.log_message_exception(e)
         return False
-
