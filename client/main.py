@@ -47,7 +47,6 @@ def start_sensor_cycle():
 
 def main():
     mode = config.get_mode()
-    print(f"MODE: {mode}")
     system_setup()
     log_message(f"BIO-IOT v1.3.1 - Mode: {mode}")
     wdt.feed()
