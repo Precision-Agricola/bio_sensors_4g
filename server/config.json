@@ -3,7 +3,7 @@
         "mqtts": {
                 "host": "a1neu73ya9bcep-ats.iot.us-east-1.amazonaws.com",
                 "port": 8883,
-                "pub_topic": "BIO-SLU-01-SON/sensors"
+                "pub_topic": "BIO-GEN-01-F5Z/sensors"
             }
     }
 }
