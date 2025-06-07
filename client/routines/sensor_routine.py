@@ -9,6 +9,9 @@ from config.secrets import DEVICE_ID
 from utils.logger import log_message
 from utils.uart import uart
 from system.status.indicator import get_status
+from config.runtime import get_mode
+
+OPERATION_MODE =  get_mode()
 
 class SensorRoutine:
     def __init__(self, data_folder="data", device_id=DEVICE_ID):
@@ -49,8 +52,9 @@ class SensorRoutine:
         try:
             readings["device_id"] = self.device_id
             readings["system_status"] = get_status()
+            readings["system_mode"] = OPERATION_MODE
+
             uart.write(json.dumps(readings) + "\n")
-            print("UART data sent:", readings)
             log_message("Data sent via UART")
             return True
         except Exception as e:

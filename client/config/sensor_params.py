@@ -5,8 +5,11 @@
 PH_SIGNAL = 32
 PH_SAMPLES = 5
 
+# liquid flow
+LIQUID_FLOW = 16
+
 # Adc converter
-ADC_NH3_CHANNEL = 1
+ADC_NH3_CHANNEL = 3
 ADC_H2S_CHANNEL = 0
 
 # I2C devices

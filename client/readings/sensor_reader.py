@@ -5,6 +5,7 @@ from readings.analog_readings import read_analog_sensors
 from readings.rs485_readings import read_rs485_sensors
 from calendar.rtc_utils import get_timestamp
 from utils.logger import log_message
+from system.control.aerator_controller import aerator
 
 class SensorReader:
     def __init__(self):
@@ -44,7 +45,9 @@ class SensorReader:
             "data": data
         }
 
-        if aerator_state is not None:
-            self.last_readings["aerator_status"] = "ON" if aerator_state else "OFF"
+        if aerator_state is None:
+            aerator_state = aerator.get_logical_state()
+        
+        self.last_readings["aerators"] = aerator.get_logical_states()
 
         return self.last_readings

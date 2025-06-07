@@ -63,17 +63,17 @@ print("Iniciando secuencia de arranque...")
 dip1, dip2 = DIP_SW1.value(), DIP_SW2.value()
 
 if dip1 and dip2:
-    set_system_mode("EMERGENCY MODE")
+    set_system_mode("EMERGENCY_MODE")
     emergency_procedure()
 elif dip1:
-    set_system_mode("WORKING MODE")
+    set_system_mode("WORKING_MODE")
     uos.dupterm(None, 0)
     esp.osdebug(None)
 elif dip2:
-    set_system_mode("DEMO MODE", DEMO_TIME_FACTOR)
+    set_system_mode("DEMO_MODE", DEMO_TIME_FACTOR)
     print(f"Modo DEMO activo (Factor de tiempo: x{DEMO_TIME_FACTOR})")
 else:
-    set_system_mode("PROGRAM MODE")
+    set_system_mode("PROGRAM_MODE")
     print("Modo PROGRAM activo (Interfaces de desarrollo activas)")
 
 gc.collect()

@@ -48,12 +48,12 @@ def start_sensor_cycle():
 def main():
     mode = config.get_mode()
     system_setup()
-    log_message(f"BIO-IOT v1.2 - Mode: {mode}")
+    log_message(f"BIO-IOT v1.3.1 - Mode: {mode}")
     wdt.feed()
 
-    if mode == "PROGRAM MODE":
+    if mode == "PROGRAM_MODE":
         log_message("Program mode active - Development interfaces enabled")
-    elif mode in ("DEMO MODE", "WORKING MODE"):
+    elif mode in ("DEMO_MODE", "WORKING_MODE"):
         start_sensor_cycle()
 
 if __name__ == "__main__":
