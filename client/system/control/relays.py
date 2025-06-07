@@ -4,7 +4,7 @@ from machine import Pin
 from config import runtime as runtime_config
 import time
 
-class SensorRelay:
+class SensorRelay: # TODO: legacy class, review and remove if not needed (sensor relays are supposed to power on the sensors)
     def __init__(self, pin_a=13, pin_b=14):
         self.a = Pin(pin_a, Pin.OUT, value=0)
         self.b = Pin(pin_b, Pin.OUT, value=0)
@@ -32,8 +32,8 @@ class SensorRelay:
 class LoadRelay:
     def __init__(self):
         self.relays = [
-            Pin(runtime_config.AERATOR_PIN_A, Pin.OUT, value=0),
-            Pin(runtime_config.AERATOR_PIN_B, Pin.OUT, value=0)
+            Pin(runtime_config.AERATOR_PIN_A, Pin.OUT, value=0, pull=Pin.PULL_DOWN),
+            Pin(runtime_config.AERATOR_PIN_B, Pin.OUT, value=0, pull=Pin.PULL_DOWN)
         ]
 
     def turn_on(self, idx=0):
@@ -62,3 +62,9 @@ class LoadRelay:
         if idx is None:
             return [r.value() == 1 for r in self.relays]
         return self.relays[idx].value() == 1 if 0 <= idx < len(self.relays) else None
+
+    def get_all_states(self):
+        return {
+            "a": "ON" if self.relays[0].value() == 1 else "OFF",
+            "b": "ON" if self.relays[1].value() == 1 else "OFF"
+        }
