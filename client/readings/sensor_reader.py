@@ -3,7 +3,7 @@
 from readings.i2c_readings import read_i2c_sensors
 from readings.analog_readings import read_analog_sensors
 from readings.rs485_readings import read_rs485_sensors
-from calendar.rtc_utils import get_timestamp
+from calendar.rtc_utils import get_fallback_timestamp
 from utils.logger import log_message
 from system.control.aerator_controller import aerator
 
@@ -39,7 +39,7 @@ class SensorReader:
         except Exception as e:
             log_message("Error en lectura RS485", e)
 
-        timestamp = get_timestamp()
+        timestamp = get_fallback_timestamp() # Fallback timestamp if RTC is unavailable
         self.last_readings = {
             "timestamp": timestamp,
             "data": data

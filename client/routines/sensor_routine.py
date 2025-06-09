@@ -67,7 +67,7 @@ class SensorRoutine:
             return
 
         try:
-            ts = readings['timestamp'].replace(':', '-').replace('T', '_')
+            ts = str(readings['timestamp']).replace('.', '_')
             filename = f"{self.data_folder}/sensors_{ts}.json"
             with open(filename, 'w') as f:
                 json.dump(readings, f)
