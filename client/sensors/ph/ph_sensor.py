@@ -20,4 +20,5 @@ class PHSensor:
         samples = [self.analog.read() for _ in range(10)]
         time.sleep(interval)
         avg = sum(samples) / len(samples)
-        return {"ph_value": avg}
+        avg_calibrado = avg / 111.74
+        return {"ph_value": avg_calibrado}
