@@ -6,7 +6,7 @@ from core.wdt_handler import start_watchdog
 from core.mqtt_listener import listen_for_commands
 from utils.logger import log_message
 from core.aws_forwarding import send_to_aws
-from config.server_settings import REBOOT_HOURS, INITIAL_DELAY_S 
+from config.server_settings import REBOOT_HOURS, INITIAL_DELAY_S
 from utils.payloads import build_boot_payload, build_scheduled_reboot_payload
 
 async def reboot_task() -> None:
