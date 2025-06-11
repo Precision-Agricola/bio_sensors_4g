@@ -9,6 +9,7 @@ class PHSensor:
         self.name = name
         self.signal = signal
         self.analog = AnalogInput(signal)
+        self.calibration_value = 111.74 # Valor de calibración para el sensor pH
 
     def read(self):
         try:
@@ -20,4 +21,5 @@ class PHSensor:
         samples = [self.analog.read() for _ in range(10)]
         time.sleep(interval)
         avg = sum(samples) / len(samples)
-        return {"ph_value": avg}
+        avg_calibrated = round(avg / self.calibration_value, 2)
+        return {"ph_value_cal": avg_calibrated}
