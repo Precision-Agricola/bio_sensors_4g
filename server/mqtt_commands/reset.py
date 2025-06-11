@@ -2,6 +2,7 @@
 
 import machine
 from utils.logger import log_message
+from utils.rtc_utils import get_fallback_timestamp
 from mqtt_commands.base import MQTTCommand
 from core.uart_commands import send_uart_command
 from core.aws_forwarding import send_to_aws
@@ -15,6 +16,7 @@ class ResetCommand(MQTTCommand):
             "device_id": DEVICE_ID,
             "event": "command_ack",
             "command_type": "reset",
+            "timestamp": get_fallback_timestamp(),
         })
 
         machine.reset()
