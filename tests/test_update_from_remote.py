@@ -10,10 +10,10 @@ PICO_FILENAME = "firmware_local.zip"
 
 def download_direct_to_pico(picoLTE, url, pico_filename):
     """
-    Descarga un archivo de una URL directamente al Pico, esperando la confirmación
-    del GET antes de iniciar la lectura para asegurar la sincronización.
+    Descarga un archivo de una URL directamente al Pico. Usa el tamaño total 
+    obtenido del GET para asegurar una lectura completa y paciente.
     """
-    debug.info("\n--- FASE 1: Descarga Directa al Pico (Modo Sincronizado) ---")
+    debug.info("\n--- FASE 1: Descarga Directa al Pico (Modo Inteligente) ---")
     
     def _read_line(timeout_ms=5000):
         line_buffer = b''
@@ -25,61 +25,65 @@ def download_direct_to_pico(picoLTE, url, pico_filename):
                 if char_byte == b'\n': break
         return line_buffer.decode('utf-8', 'ignore').strip()
 
-    # 1. Configurar URL y enviar el comando GET.
+    # 1. Configurar URL y enviar el comando GET para obtener el tamaño.
     picoLTE.http.set_server_url(url)
-    picoLTE.atcom.send_at_comm_once("AT+QHTTPGET=80")
-    debug.info("[+] Comando GET enviado. Esperando confirmación de descarga del módem...")
+    picoLTE.atcom.send_at_comm_once("AT+QHTTPGET=120") # Timeout de 120 segundos
+    debug.info("[+] Comando GET enviado. Esperando confirmación y tamaño del módem...")
 
-    # 2. --- AJUSTE DE SINCRONIZACIÓN CLAVE ---
-    # Esperar la confirmación "+QHTTPGET: 0,200" antes de continuar.
-    # Esto nos asegura que el módem ha terminado de descargar los datos a su buffer.
-    get_success = False
+    total_size = 0
     start_time = time.ticks_ms()
-    # Damos hasta 80 segundos, igual que el timeout del comando GET.
-    while time.ticks_diff(time.ticks_ms(), start_time) < 80000:
+    while time.ticks_diff(time.ticks_ms(), start_time) < 20000: # 20s para obtener respuesta
         line = _read_line()
         if "+QHTTPGET: 0,200" in line:
-            debug.info(f"[+] Confirmación de descarga exitosa recibida: {line}")
-            get_success = True
-            break
-        elif "ERROR" in line or "+QHTTPGET: 1" in line:
-            debug.error(f"[!] El módem reportó un error durante el GET: {line}")
-            raise Exception("El módem falló al ejecutar HTTP GET.")
+            debug.info(f"[+] Respuesta HTTP GET recibida: {line}")
+            try:
+                parts = line.split(',')
+                if len(parts) == 3:
+                    total_size = int(parts[2])
+                    debug.info(f"[+] Éxito: Tamaño del contenido a descargar: {total_size} bytes.")
+                    break
+            except (ValueError, IndexError): pass
     
-    if not get_success:
-        raise Exception("Timeout esperando la confirmación de la descarga (+QHTTPGET).")
+    if total_size == 0:
+        raise Exception("Fallo al obtener el tamaño de la descarga desde la respuesta +QHTTPGET.")
 
-    # 3. Ahora que sabemos que los datos están listos, iniciamos la lectura.
-    picoLTE.atcom.send_at_comm_once(f"AT+QHTTPREAD={80}")
+    # 2. Iniciar la lectura del buffer y esperar el único CONNECT.
+    picoLTE.atcom.send_at_comm_once(f"AT+QHTTPREAD={120}") # Timeout de 120 segundos
     
-    line = _read_line(timeout_ms=8000)
+    line = _read_line(timeout_ms=10000)
     while "CONNECT" not in line:
         line = _read_line()
-        if not line:
-            raise Exception("No se recibió CONNECT para AT+QHTTPREAD después de un GET exitoso.")
+        if not line: raise Exception("No se recibió CONNECT para AT+QHTTPREAD.")
     debug.info("[+] CONNECT recibido. Iniciando lectura de stream binario...")
 
-    # 4. Leer el stream de datos hasta que se agote.
-    total_bytes_read = 0
+    # 3. --- BUCLE DE LECTURA "INTELIGENTE" ---
+    bytes_read = 0
     try:
         with open(pico_filename, "wb") as f:
-            while True:
-                chunk = picoLTE.atcom.modem_com.read(1024) 
+            debug.info(f"[+] Iniciando transferencia de datos al archivo '{pico_filename}'...")
+            
+            # El bucle AHORA SABE CUÁNDO TERMINAR.
+            while bytes_read < total_size:
+                # Intentamos leer un trozo.
+                chunk = picoLTE.atcom.modem_com.read(min(1024, total_size - bytes_read))
+                
                 if chunk:
                     f.write(chunk)
-                    total_bytes_read += len(chunk)
-                    print(f"\r    [INFO] Recibidos {total_bytes_read} bytes...", end="")
+                    bytes_read += len(chunk)
+                    print(f"\r    [INFO] Recibidos {bytes_read} / {total_size} bytes...", end="")
                 else:
-                    print()
-                    debug.info("\n[+] Fin del stream de datos detectado.")
-                    break
-        
-        debug.info(f"[+] Éxito total: Archivo '{pico_filename}' descargado. Tamaño final: {total_bytes_read} bytes.")
-        
-        if total_bytes_read > 100000: # Asumimos que un firmware válido pesa más de 100kB
+                    # Si no hay datos, simplemente esperamos un poco y el bucle
+                    # volverá a intentarlo, porque bytes_read aún es menor que total_size.
+                    time.sleep_ms(20)
+
+            print()
+
+        # 4. Verificación final.
+        if bytes_read >= total_size:
+            debug.info(f"[+] Éxito total: Archivo '{pico_filename}' descargado y verificado.")
             return True
         else:
-            debug.error(f"[!] Fallo: El archivo descargado ({total_bytes_read} bytes) parece demasiado pequeño.")
+            debug.error(f"[!] Fallo en la descarga. Se recibieron {bytes_read} de {total_size} bytes.")
             return False
 
     except Exception as e:
@@ -88,6 +92,9 @@ def download_direct_to_pico(picoLTE, url, pico_filename):
         sys.print_exception(e)
         return False
     finally:
+        # Limpiar el buffer y detener la sesión HTTP.
+        time.sleep(0.5)
+        picoLTE.atcom.modem_com.read() # Lee y descarta cualquier dato sobrante
         picoLTE.atcom.send_at_comm("AT+QHTTPSTOP")
 
 # --- INICIO DEL SCRIPT ---
