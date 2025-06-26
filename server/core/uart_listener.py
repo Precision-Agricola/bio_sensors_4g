@@ -22,7 +22,7 @@ async def uart_listener():
                     try:
                         data = ujson.loads(line.decode().strip())
                         log_message(f"UART data received: {data}")
-                        if not send_to_aws(data):
+                        if not await send_to_aws(data):
                             log_message("Backup pending (send_to_aws failed).")
                     except Exception as e:
                         log_message(f"Decode error: {e}")

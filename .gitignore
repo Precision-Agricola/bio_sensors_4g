@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# windows folder config
+desktop.ini
+
 # sandbox code
 **sandbox**
 

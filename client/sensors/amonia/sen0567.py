@@ -1,11 +1,9 @@
+# client/sensors/amonia/sen0567.py
+
 from sensors.base import Sensor, register_sensor
-from protocols.analog import AnalogInput
+from protocols.adc_mux import read_adc_channel
 
 @register_sensor("NH3", "ANALOG")
 class NH3Sensor(Sensor):
-    def _init_hardware(self):
-        super()._init_hardware()  # Call base initialization
-        self.analog = AnalogInput(self.signal)  # Initialize hardware
-
     def _read_implementation(self):
-        return self.analog.read()
+        return read_adc_channel(self.signal)

@@ -1,14 +1,16 @@
+# client/readings/scheduler.py
+
 import _thread
 import time
 import gc
-import machine
 from readings.sensor_reader import SensorReader
 from config import runtime as runtime_config
 from utils.logger import log_message
+from system.control.aerator_controller import aerator
 
 class SensorScheduler:
-    def __init__(self, settling_time=5):
-        self.reader = SensorReader(settling_time=settling_time)
+    def __init__(self):
+        self.reader = SensorReader()
         self.running = False
         self.thread_id = None
         self.last_reading_time = 0
@@ -39,86 +41,40 @@ class SensorScheduler:
         return False
 
     def _monitoring_task(self):
-        try:
-            from system.control.relays import LoadRelay
-            relay = LoadRelay()
-        except Exception as e:
-            log_message(f"ERROR LoadRelay: {e}")
-            self.running = False
-            return
-
-        log_message("Tarea monitoreo iniciada (3 lecturas ON / 3 OFF).")
-
-        last_state = relay.get_state(idx=0)
-        now = time.time()
-        time_factor = max(1, runtime_config.get_speed())
-
-        on_time = 3 * 3600 // time_factor
-        off_time = 3 * 3600 // time_factor
-        on_interval = on_time / 3.0
-        off_interval = off_time / 3.0
-
-        on_start, off_start = now, now
-        on_target, off_target = now + on_interval, now + off_interval
-        on_count, off_count = 0, 0
-
-        if last_state:
-            on_start = now
-            on_target = on_start + on_interval
-        else:
-            off_start = now
-            off_target = off_start + off_interval
+        log_message("Tarea monitoreo lógica (3 lecturas por fase, sin espacios muertos).")
 
         while self.running:
             try:
-                state = relay.get_state(idx=0)
-                now = time.time()
+                state = aerator.get_logical_state()
 
-                if state != last_state:
-                    try:
-                        time_factor = max(1, runtime_config.get_speed())
-                        on_time = 3 * 3600 // time_factor
-                        off_time = 3 * 3600 // time_factor
-                        on_interval = on_time / 3.0
-                        off_interval = off_time / 3.0
-                    except:
-                        pass
+                time_factor = max(1, runtime_config.get_speed())
+                cycle_hours = runtime_config.get_cycle_duration()
+                duty_cycle = runtime_config.get_duty_cycle()
+                readings_per_phase = 3
 
-                    if state:
-                        on_start = now
-                        on_target = on_start + on_interval
-                        on_count = 0
-                    else:
-                        off_start = now
-                        off_target = off_start + off_interval
-                        off_count = 0
+                if state:
+                    total_seconds = int(cycle_hours * 3600 * duty_cycle) // time_factor
+                else:
+                    total_seconds = int(cycle_hours * 3600 * (1 - duty_cycle)) // time_factor
 
-                should_read = False
+                interval = total_seconds // readings_per_phase
 
-                if state and on_count < 3 and now >= on_target:
-                    should_read = True
-                    on_count += 1
-                    if on_count < 3:
-                        on_target = on_start + (on_count + 1) * on_interval
+                log_message(f"Fase lógica: {'ON' if state else 'OFF'} | Intervalo: {interval}s")
 
-                elif not state and off_count < 3 and now >= off_target:
-                    should_read = True
-                    off_count += 1
-                    if off_count < 3:
-                        off_target = off_start + (off_count + 1) * off_interval
+                for _ in range(readings_per_phase):
+                    if not self.running:
+                        return
 
-                if should_read:
                     try:
                         readings = self.reader.read_sensors(aerator_state=state)
-                        self.last_reading_time = now
+                        self.last_reading_time = time.time()
                         for cb in self.callbacks:
                             cb(readings)
                         gc.collect()
                     except Exception as e:
                         log_message(f"ERROR read/callback: {e}")
 
-                last_state = state
-                time.sleep(10)
+                    time.sleep(interval)
 
             except Exception as e:
                 log_message(f"ERROR grave monitoreo: {e}")

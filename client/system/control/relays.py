@@ -1,7 +1,10 @@
+# client/system/control/relays.py
+
 from machine import Pin
+from config import runtime as runtime_config
 import time
 
-class SensorRelay:
+class SensorRelay: # TODO: legacy class, review and remove if not needed (sensor relays are supposed to power on the sensors)
     def __init__(self, pin_a=13, pin_b=14):
         self.a = Pin(pin_a, Pin.OUT, value=0)
         self.b = Pin(pin_b, Pin.OUT, value=0)
@@ -27,22 +30,26 @@ class SensorRelay:
 
 
 class LoadRelay:
-    def __init__(self, pins=(33, 27)): #TODO: chang the solid rele to 33 and perform tests
-        self.relays = [Pin(p, Pin.OUT, value=0) for p in pins]
+    def __init__(self):
+        self.relays = [
+            Pin(runtime_config.AERATOR_PIN_A, Pin.OUT, value=0, pull=Pin.PULL_DOWN),
+            Pin(runtime_config.AERATOR_PIN_B, Pin.OUT, value=0, pull=Pin.PULL_DOWN)
+        ]
 
-    def turn_on(self, idx=None):
-        targets = self.relays if idx is None else [self.relays[idx]]
-        for r in targets: r.on()
+    def turn_on(self, idx=0):
+        other = 1 - idx
+        self.relays[idx].on()
+        self.relays[other].off()
 
     def turn_off(self, idx=None):
         targets = self.relays if idx is None else [self.relays[idx]]
         for r in targets: r.off()
 
-    def cycle(self, on_t, off_t, n=1, wdt=None):
+    def cycle(self, on_t, off_t, n=1, wdt=None): #TODO: legacy test routine, not used in current logic
         for _ in range(n):
-            self.turn_on()
+            self.turn_on(0)
             self._wait(on_t, wdt)
-            self.turn_off()
+            self.turn_on(1)
             self._wait(off_t, wdt)
 
     def _wait(self, secs, wdt=None):
@@ -55,3 +62,9 @@ class LoadRelay:
         if idx is None:
             return [r.value() == 1 for r in self.relays]
         return self.relays[idx].value() == 1 if 0 <= idx < len(self.relays) else None
+
+    def get_all_states(self):
+        return {
+            "a": "ON" if self.relays[0].value() == 1 else "OFF",
+            "b": "ON" if self.relays[1].value() == 1 else "OFF"
+        }
