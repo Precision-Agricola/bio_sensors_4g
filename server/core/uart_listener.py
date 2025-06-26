@@ -5,8 +5,8 @@ import ujson
 import uasyncio as asyncio
 from utils.logger import log_message
 from core.aws_forwarding import send_to_aws
+from utils.uart import uart
 
-uart = machine.UART(1, baudrate=9600, tx=machine.Pin(8), rx=machine.Pin(9))
 
 async def uart_listener():
     log_message("UART listener active.")

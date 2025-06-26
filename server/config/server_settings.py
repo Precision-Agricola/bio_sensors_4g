@@ -1,2 +1,9 @@
+# System params
 INITIAL_DELAY_S = 15
 REBOOT_HOURS = 24
+
+# Uart params
+TX_PIN = 12 
+RX_PIN = 13 
+UART_CHANNEL = 0
+UART_BAUDRATE = 9600

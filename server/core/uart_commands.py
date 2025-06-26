@@ -1,10 +1,9 @@
 # server/core/uart_commands.py
 
-from machine import reset, UART, Pin
+from utils.uart import uart
 from utils.logger import log_message
 import ujson
 
-uart = UART(1, baudrate=9600, tx=Pin(8), rx=Pin(9))
 
 
 def send_uart_command(command_type: str, payload: dict = {}):
