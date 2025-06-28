@@ -42,7 +42,12 @@ except Exception as e:
 
 # --- 3. Lectura de sensores I2C
 i2c_data = {}
-
+try:
+    print("📡 Leyendo sensores I2C...")
+    i2c_data = read_i2c_sensors()
+    print("✅ Lectura I2C:", i2c_data)
+except Exception as e:
+    print(f"❌ Error sensores I2C: {e}")
 
 # --- 4. Lectura de sensores analógicos
 analog_data = {}
