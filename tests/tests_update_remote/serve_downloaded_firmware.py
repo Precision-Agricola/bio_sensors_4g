@@ -7,7 +7,7 @@ from pico_lte.core import PicoLTE
 from pico_lte.utils.status import Status
 
 # --- Configuration ---
-MODEM_FILE_NAME = "firmware.zip"
+MODEM_FILE_NAME = "client.zip"
 AP_SSID = "PicoFileServer"
 AP_PASSWORD = "password123"
 
