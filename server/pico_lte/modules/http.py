@@ -616,5 +616,5 @@ class HTTP:
         dict
             Result that includes "status" and "response" keys
         """
-        command = f'AT+QHTTPREADFILE="{file_path}",{timeout}'
+        command = f"AT+QHTTPREADFILE={file_path},{timeout}"
         return self.atcom.send_at_comm(command)

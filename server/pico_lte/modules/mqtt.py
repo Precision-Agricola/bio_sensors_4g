@@ -561,8 +561,9 @@ class MQTT:
                 message = message[1:]
             splitted_message = message.split(",")
             # Note that, we delete starting and trailing " marks.
-            topic_inside = splitted_message[1].strip('"')
-            message_inside = ",".join(splitted_message[2:]).strip('"')
+            topic_inside = splitted_message[1][1:-1]
+            message_inside = splitted_message[2][1:-1]
+
             # Append the details of the message as a dict item.
             messages_dict.append(
                 {
