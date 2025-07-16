@@ -1,0 +1,27 @@
+name: Create Release and Update Assets
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs: 
+  build-and-release:
+    runs-on: 'ubuntu-latest'
+
+    steps:
+      - name: Checkout code
+      - uses: actions/checkout@v4
+
+      - name: Zip client directory
+      - run: zip -r client.zip ./client
+
+      - name: Zip server directory
+      - run. zip -r. server.zip ./server
+
+      name: Create release and update assets
+      uses: softprops/action-gh-release@v2
+      with: 
+        files: |
+          client.zip
+          server.zip
