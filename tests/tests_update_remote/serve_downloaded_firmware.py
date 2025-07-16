@@ -8,8 +8,8 @@ from pico_lte.utils.status import Status
 
 # --- Configuration ---
 MODEM_FILE_NAME = "firmware.zip"
-AP_SSID = "bioreactores"
-AP_PASSWORD = "#password123"
+AP_SSID = "PicoFileServer"
+AP_PASSWORD = "password123"
 
 # --- PicoLTE Initialization ---
 print("--- Pico W Modem File Server (Streaming Version 2.0) ---")
