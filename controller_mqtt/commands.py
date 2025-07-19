@@ -19,9 +19,16 @@ def create_params_command(parameters: Dict[str, Any]) -> Dict[str, Any]:
     cmd["payload"] = parameters
     return cmd
 
-def create_update_command(version: str, download_url: Optional[str] = None) -> Dict[str, Any]:
-    cmd = _base_command("actualizar")
-    cmd["payload"] = {"version": version}
-    if download_url:
-        cmd["payload"]["download_url"] = download_url
+
+def create_client_update_command(version:str, download_url:str, wifi_ssid:str, wifi_pass:str) -> Dict[str, Any]:
+    cmd = _base_command("update_client")
+    cmd["payload"] = {
+        "version": version,
+        "url": download_url,
+        "transfer_params": {
+            "method": "wifi_ap",
+            "ssid": wifi_pass,
+            "password": wifi_pass
+        }
+    }
     return cmd
