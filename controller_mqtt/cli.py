@@ -8,8 +8,11 @@ from controller_mqtt import actions
 from controller_mqtt import commands
 
 app = typer.Typer(help="CLI para enviar comandos a dispositivos Bio-IoT.")
+
 client_app = typer.Typer()
+server_app = typer.Typer()
 app.add_typer(client_app, name="client", help="Comandos para gestionar el firmware de los Clientes (ESP32).")
+app.add_typer(server_app, name="server", help="Comandso para gestionar el firmware de los Servidores" )
 
 
 @client_app.command("update", help="Envía una orden de actualización de firmware a un cliente.")
@@ -39,6 +42,21 @@ def client_update(
         ssid=ssid,
         password=password
     )
+
+@server_app.command("reboot", help="Envia un comando de reinicio al servidor")
+def server_reboot(
+    device:str = typer.Option(..., "--device", "-d", help='ID del server, debe verse similar a SERVER_AA12BB'),
+    dry_run:bool = typer.Option(False, "--dry-run", help='muestra el payload del comando sin enviarlo')
+):
+    print(f"Inicando accion 'reboot server' para el dispositivo [bold red] {device} [/bold red]...")
+
+    command_payload = commands.create_server_reboot_command()
+    if dry_run:
+        print("---MODE DRY RUN---")
+        print(json.dumps(command_payload, indent = 4))
+        raise typer.Exit 
+    
+    actions.handle_server_reboot(device=device)
 
 if __name__ == "__main__":
     app()

@@ -7,9 +7,10 @@ from pico_lte.core import PicoLTE
 from utils.logger import log_message
 from pico_lte.utils.status import Status
 
+from core.ota_manager import OTAManager
 from mqtt_commands.params import ParamsCommand
 from mqtt_commands.reset import ResetCommand
-from mqtt_commands.update import UpdateCommand
+from mqtt_commands.update import UpdateClientCommand
 from config.device_info import DEVICE_ID
 
 def get_mac_suffix():
@@ -23,10 +24,12 @@ SUB_TOPICS = [
 
 picoLTE = PicoLTE()
 
+ota_manager = OTAManager()
+
 COMMAND_HANDLERS = {
     "reset": ResetCommand(),
     "params": ParamsCommand(),
-    "actualizar": UpdateCommand(),
+    "update_client": UpdateClientCommand(ota_manager=ota_manager),
 }
 
 async def listen_for_commands():
