@@ -35,5 +35,5 @@ def create_client_update_command(version:str, download_url:str, wifi_ssid:str, w
 
 def create_server_reboot_command() -> Dict[str, Any]:
     """Crea el payload para el comando de reinicio del servidor."""
-    cmd = _base_command("reboot_server")
+    cmd = _base_command("reset")
     return cmd
