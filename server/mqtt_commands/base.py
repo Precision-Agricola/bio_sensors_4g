@@ -1,6 +1,9 @@
 # server/mqtt_commands/base.py
 
 class MQTTCommand:
+    def __init__(self):
+        pass
+
     def handle(self, payload, topic):
         """
         Ejecuta el comando con los datos recibidos.
