@@ -1,0 +1,30 @@
+name: Create Release and Package ZIPs
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create client.zip
+        run: zip -r client.zip ./client
+
+      - name: Create server.zip
+        run: zip -r server.zip ./server
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: "Automatic release for server and client packages"
+          files: |
+            client.zip
+            server.zip
