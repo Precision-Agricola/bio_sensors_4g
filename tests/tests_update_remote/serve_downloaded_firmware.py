@@ -1,4 +1,5 @@
-# main.py
+# tests/tests_update_remote/serve_downloaded_firmware.py
+
 import time
 import network
 import socket
