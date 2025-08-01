@@ -3,7 +3,7 @@ from pico_lte.core import PicoLTE
 from pico_lte.utils.status import Status
 
 # --- Configuración ---
-FILE_TO_DELETE = "firmware.zip"
+FILE_TO_DELETE = "client.zip"
 
 print(f"--- Script para Borrar el Archivo '{FILE_TO_DELETE}' ---")
 
