@@ -8,12 +8,15 @@ WDT_TIMEOUT_MS = 8000
 
 async def feed_watchdog_loop(wdt):
     while True:
-        wdt.feed()
+        #TODO: implement the feed to wdt in  production
+        #wdt.feed()
         await asyncio.sleep(2)
 
 async def start_watchdog():
     try:
-        wdt = machine.WDT(timeout=WDT_TIMEOUT_MS)
+        #TODO: Enable wdt for production
+        #wdt = machine.WDT(timeout=WDT_TIMEOUT_MS)
+        wdt = None
         log_message("WDT initialized.")
         asyncio.create_task(feed_watchdog_loop(wdt))
     except Exception as e:
