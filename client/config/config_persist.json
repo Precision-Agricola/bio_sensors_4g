@@ -1,4 +1,8 @@
 {
   "cycle_hours": 6,
-  "duty_cycle": 0.5
+  "duty_cycle": 0.5,
+  "pump_config": {
+    "interval_min": 180,
+    "duration_min": 10
+  }
 }

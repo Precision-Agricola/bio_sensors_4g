@@ -37,10 +37,25 @@ def get_cycle_duration():
 def get_duty_cycle():
     return _persisted.get("duty_cycle", 0.5)
 
-def save_config(cycle_hours=None, duty_cycle=None):
+def get_pump_interval():
+    return _persisted.get("pump_config", {}).get("interval_min", 180)
+
+def get_pump_duration():
+    return _persisted.get("pump_config", {}).get("duration_min", 10)
+
+def save_config(cycle_hours=None, duty_cycle=None, pump_interval=None, pump_duration=None):
     if cycle_hours is not None:
         _persisted["cycle_hours"] = cycle_hours
     if duty_cycle is not None:
         _persisted["duty_cycle"] = duty_cycle
+    
+    if pump_interval is not None or pump_duration is not None:
+        if "pump_config" not in _persisted:
+            _persisted["pump_config"] = {}
+        if pump_interval is not None:
+            _persisted["pump_config"]["interval_min"] = pump_interval
+        if pump_duration is not None:
+            _persisted["pump_config"]["duration_min"] = pump_duration
+            
     with open(CONFIG_PATH, "w") as f:
         json.dump(_persisted, f)

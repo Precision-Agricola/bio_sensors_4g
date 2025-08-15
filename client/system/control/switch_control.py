@@ -1,32 +1,68 @@
-# client/system/control/switch_control.py
-
-from machine import Pin
 import uasyncio as asyncio
-from config.config import SWITCH_PIN, RECIRCULATION_POMP_PIN
+import time
+from machine import Pin
+import config.runtime as runtime_config
+import config.config as app_config
+from utils.logger import log_message
 
-switch_pin = Pin(SWITCH_PIN, Pin.IN, Pin.PULL_UP)
-recirculation_pomp = Pin(RECIRCULATION_POMP_PIN, Pin.OUT)
+class Relay:
+    def __init__(self, pin_num, active_high=True):
+        self._pin = Pin(pin_num, Pin.OUT, value=0 if active_high else 1)
+        self._ah = active_high
+        self._on = False
 
-POLL_INTERVAL = 0.01
-DEBOUNCE_COUNT = 5
+    def toggle(self):
+        self._on = not self._on
+        if self._on:
+            self._pin.value(1 if self._ah else 0)
+        else:
+            self._pin.value(0 if self._ah else 1)
+
+    def is_on(self):
+        return self._on
 
 async def monitor_switch():
-    last_state = switch_pin.value()
-    pump_on = recirculation_pomp.value()
+    time_factor = runtime_config.get_speed()
+    interval_min = runtime_config.get_pump_interval()
+    duration_min = runtime_config.get_pump_duration()
+    
+    intervalo_seg = (interval_min * 60) // time_factor
+    duracion_seg = (duration_min * 60) // time_factor
+    
+    log_message(f"Pump Control iniciado. Intervalo: {intervalo_seg}s, Duración: {duracion_seg}s")
+
+    button = Pin(app_config.BUTTON_PIN, Pin.IN, Pin.PULL_UP)
+    pump = Relay(app_config.RECIRCULATION_POMP_PIN)
+    
+    last_button_state = button.value()
+    pump_on_by_auto = False
+    next_auto_on_time = time.ticks_add(time.ticks_ms(), intervalo_seg * 1000)
 
     while True:
-        state = switch_pin.value()
+        current_state = button.value()
+        if current_state != last_button_state and current_state == 0:
+            await asyncio.sleep_ms(50)
+            if button.value() == 0:
+                log_message("Botón manual presionado.")
+                pump.toggle()
+                pump_on_by_auto = False
+                next_auto_on_time = time.ticks_add(time.ticks_ms(), intervalo_seg * 1000)
+        
+        last_button_state = current_state
 
-        if state != last_state:
-            stable = True
-            for _ in range(DEBOUNCE_COUNT):
-                await asyncio.sleep(POLL_INTERVAL)
-                if switch_pin.value() != state:
-                    stable = False
-                    break
-            if stable and state == 0:
-                pump_on = not pump_on
-                recirculation_pomp.value(pump_on)
+        if time.ticks_diff(time.ticks_ms(), next_auto_on_time) > 0:
+            if not pump.is_on():
+                log_message(f"Ciclo automático: Encendiendo bomba por {duracion_seg}s.")
+                pump.toggle()
+                pump_on_by_auto = True
+                auto_off_time = time.ticks_add(time.ticks_ms(), duracion_seg * 1000)
+            
+            next_auto_on_time = time.ticks_add(time.ticks_ms(), intervalo_seg * 1000)
 
-            last_state = state
-        await asyncio.sleep(POLL_INTERVAL)
+        if pump_on_by_auto and time.ticks_diff(time.ticks_ms(), auto_off_time) > 0:
+            if pump.is_on():
+                log_message("Ciclo automático: Apagando bomba.")
+                pump.toggle()
+            pump_on_by_auto = False
+
+        await asyncio.sleep_ms(50)
