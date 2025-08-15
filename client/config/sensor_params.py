@@ -6,7 +6,7 @@ PH_SIGNAL = 32
 PH_SAMPLES = 5
 
 # liquid flow
-LIQUID_FLOW = 19
+LIQUID_FLOW = 18
 
 # Adc converter
 ADC_NH3_CHANNEL = 3
