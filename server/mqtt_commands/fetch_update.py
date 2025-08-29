@@ -42,9 +42,7 @@ class FetchUpdateCommand(MQTTCommand):
             if result_read.get("status") == Status.SUCCESS:
                 response_content = result_read.get("response")
                 log_message("HTTP: Descarga de detalles exitosa.")
-                
-                details = ujson.loads(response_content)
-                return details
+                return ujson.loads(response_content)
             else:
                 log_message(f"HTTP: Error al leer la respuesta. {result_read.get('response')}")
                 return None

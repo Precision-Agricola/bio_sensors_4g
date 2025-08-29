@@ -2,7 +2,7 @@
 
 import uasyncio as asyncio
 import ujson
-import machine
+import ubinascii
 from pico_lte.core import PicoLTE
 from utils.logger import log_message
 from pico_lte.utils.status import Status
@@ -13,17 +13,12 @@ from mqtt_commands.reset import ResetCommand
 from mqtt_commands.fetch_update import FetchUpdateCommand
 from config.device_info import DEVICE_ID
 
-def get_mac_suffix():
-    mac = machine.unique_id()
-    return ''.join('{:02x}'.format(b) for b in mac[-3:]).upper()
-
 SUB_TOPICS = [
     (f"bioiot/control/{DEVICE_ID}", 1),
     ("bioiot/control/all", 1)
 ]
 
 picoLTE = PicoLTE()
-
 ota_manager = OTAManager()
 
 COMMAND_HANDLERS = {
@@ -64,22 +59,28 @@ async def listen_for_commands():
                 end_index = message_buffer.find('}')
                 
                 if end_index > start_index:
-                    json_str = message_buffer[start_index : end_index + 1]
+                    json_str_wrapper = message_buffer[start_index : end_index + 1]
                     message_buffer = message_buffer[end_index + 1 :]
                     
-                    log_message(f"MQTT [ensamblado] mensaje completo: {json_str}")
-
                     try:
-                        data = ujson.loads(json_str)
-                        command_type = data.get("command_type")
+                        wrapper_data = ujson.loads(json_str_wrapper)
+                        base64_payload = wrapper_data.get("data")
                         
-                        handler = COMMAND_HANDLERS.get(command_type)
-                        if handler:
-                            handler.handle(data, msg.get("topic", ""))
-                        else:
-                            log_message(f"ℹ️ Comando no reconocido: {command_type}")
+                        if base64_payload:
+                            original_json_str = ubinascii.a2b_base64(base64_payload).decode('utf-8')
+                            log_message(f"MQTT [Decodificado]: {original_json_str}")
+                            
+                            command_data = ujson.loads(original_json_str)
+                            command_type = command_data.get("command_type")
+                            
+                            handler = COMMAND_HANDLERS.get(command_type)
+                            if handler:
+                                handler.handle(command_data, msg.get("topic", ""))
+                            else:
+                                log_message(f"ℹ️ Comando no reconocido: {command_type}")
+
                     except Exception as e:
-                            log_message(f"❌ Error procesando JSON: {e}")
+                        log_message(f"❌ Error procesando/decodificando: {e}")
                 else:
                     message_buffer = ""
 
