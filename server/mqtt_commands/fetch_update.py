@@ -51,7 +51,8 @@ class FetchUpdateCommand(MQTTCommand):
             return None
 
     def handle(self, payload: dict, topic: str):
-        details_url = payload.get('details_url')
+        command_payload = payload.get('payload', {})
+        details_url = command_payload.get('details_url')
 
         if not details_url:
             log_message("Comando 'fetch_update' inválido: falta 'details_url'.")

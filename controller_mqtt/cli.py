@@ -18,29 +18,27 @@ app.add_typer(server_app, name="server", help="Comandso para gestionar el firmwa
 @client_app.command("update", help="Envía una orden de actualización de firmware a un cliente.")
 def client_update(
     device: str = typer.Option(..., "--device", "-d", help="ID del dispositivo servidor que controla al cliente."),
-    version: str = typer.Option(..., "--version", "-v", help="Versión del firmware a instalar. Ej: 'v1.3.0'"),
-    url: str = typer.Option(..., "--url", "-u", help="URL completa del archivo client.zip del firmware."),
-    ssid: str = typer.Option("PicoUpdateAP", "--ssid", help="SSID para el AP Wi-Fi de transferencia."),
-    password: str = typer.Option(..., "--pass", "-p", prompt=True, hide_input=True, help="Contraseña para el AP Wi-Fi."),
+    version: str = typer.Option(..., "--version", "-v", help="La etiqueta de la release de GitHub. Ej: 'v1.3.0'"),
+    repo: str = typer.Option("Precision-Agricola/bio_sensors_4g", "--repo", help="El repositorio de GitHub en formato 'usuario/repo'."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Muestra el payload del comando sin enviarlo.")
 ):
     """
-    Prepara y delega el comando de actualización del cliente.
+    Construye la URL de los detalles y delega el envío del comando 'fetch_update'.
     """
     print(f"🤖 Iniciando acción 'update_client' para el dispositivo [bold cyan]{device}[/bold cyan]...")
 
+    details_url = f"https://github.com/{repo}/releases/download/{version}/details.json"
+    print(f"🔗 URL de detalles construida: {details_url}")
+
     if dry_run:
-        command_payload = commands.create_client_update_command(version, url, ssid, password)
+        command_payload = commands.create_fetch_update_command(details_url)
         print("--- MODO DRY-RUN ---")
         print(json.dumps(command_payload, indent=4))
         raise typer.Exit()
 
     actions.handle_client_update(
         device=device,
-        version=version,
-        url=url,
-        ssid=ssid,
-        password=password
+        details_url=details_url
     )
 
 @server_app.command("reboot", help="Envia un comando de reinicio al servidor")
