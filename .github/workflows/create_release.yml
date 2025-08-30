@@ -22,6 +22,18 @@ jobs:
       - name: Create server.zip
         run: zip -r server.zip ./server
 
+      - name: Create details.json
+        run: |
+          echo '{
+            "version": "${{ github.ref_name }}",
+            "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/client.zip",
+            "transfer_params": {
+              "method": "wifi_ap",
+              "ssid": "PicoUpdateAP",
+              "password": "un_password_seguro"
+            }
+          }' > details.json
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -29,3 +41,5 @@ jobs:
           files: |
             client.zip
             server.zip
+            details.json
+    
