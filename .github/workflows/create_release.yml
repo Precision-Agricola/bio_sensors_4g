@@ -22,7 +22,6 @@ jobs:
       - name: Create server.zip
         run: zip -r server.zip ./server
 
-      # --- PASO CLAVE AÑADIDO ---
       - name: Create details.json
         run: |
           echo '{
@@ -42,4 +41,4 @@ jobs:
           files: |
             client.zip
             server.zip
-            details.json # <-- Se adjunta el nuevo archivo
+            details.json
