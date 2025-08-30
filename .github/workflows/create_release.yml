@@ -42,3 +42,4 @@ jobs:
             client.zip
             server.zip
             details.json
+    

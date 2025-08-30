@@ -7,7 +7,8 @@ from pico_lte.utils.status import Status
 AP_SSID, AP_PASS = "PicoLTE_AP", "micropython"
 ZIP_NAME = "client.zip"
 ZIP_URL  = ("https://raw.githubusercontent.com/Precision-Agricola/"
-            "bio_sensors_4g/remote-updates/client.zip")
+            "bio_sensors_4g/releases/download/test-v0.1.0/client.zip")
+
 CHUNK  = 2048      # bytes por lectura/envío
 DEBUG  = False
 # ───────────────────────────────────────────────────────────── #
