@@ -2,7 +2,7 @@
 from pico_lte.core import PicoLTE
 from pico_lte.utils.status import Status
 
-URL       = "https://raw.githubusercontent.com/Precision-Agricola/bio_sensors_4g/remote-updates/client.zip"
+URL       = "https://github.com/Precision-Agricola/bio_sensors_4g/releases/download/test-v0.1.0/client.zip"
 UFS_FILE  = "UFS:client.zip"
 
 lte = PicoLTE()

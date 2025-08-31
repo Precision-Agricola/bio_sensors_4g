@@ -14,7 +14,7 @@ from pico_lte.core import PicoLTE
 from pico_lte.utils.status import Status
 
 # ───────── Parámetros ──────────────────────────────────────────────────────
-ZIP_UFS  = "UFS:bio_sensors_v1_4.zip"
+ZIP_UFS  = "UFS:client.zip"
 URL_PATH = "/releases/bio_sensors_v1_4.zip"
 CHUNK    = 1024
 SSID     = "pico_zip"

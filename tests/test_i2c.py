@@ -2,7 +2,7 @@
 #
 # Escanea el bus I²C y, si detecta sensores conocidos,
 # imprime una lectura rápida de cada uno.
-# Incluye una guía de cableado y comprobación de líneas.
+# Versión corregida manteniendo la estructura original.
 
 from machine import Pin, SoftI2C
 from config.config import I2C_SCL_PIN, I2C_SDA_PIN
@@ -22,24 +22,35 @@ def _read_bmp390(i2c, addr):
     }
 
 def _read_scd41(i2c, addr):
+    """
+    Función corregida para usar los nombres de método correctos:
+    'start_periodic' y 'stop_periodic'.
+    """
     from utils.scd4x import SCD4x
     scd = SCD4x(i2c)
-    # Puede que necesite un reinicio para empezar desde un estado limpio
-    try:
-        scd.stop_periodic_measurement()
-        sleep(0.5)
-    except Exception:
-        pass # Ignorar si ya estaba detenido
-    scd.start_periodic_measurement()
-    sleep(5)  # Tiempo para la primera medida
-    if scd.data_ready:
+    
+    # Detener cualquier medición anterior para un inicio limpio.
+    scd.stop_periodic()
+    sleep(0.5)
+
+    # Iniciar medición periódica (nombre de método CORREGIDO).
+    scd.start_periodic()
+    
+    # Esperar el tiempo necesario para la primera lectura.
+    sleep(5)
+    
+    if scd.data_ready():
         co2, temp, hum = scd.read_measurement()
-        scd.stop_periodic_measurement() # Detener para no consumir energía
+        # Detener medición para ahorrar energía.
+        scd.stop_periodic()
         return {
             "co2_ppm": co2,
             "temperature_°C": round(temp, 2),
             "humidity_%": round(hum, 1),
         }
+    
+    # Asegurarse de detener el sensor si los datos no están listos.
+    scd.stop_periodic()
     return {"note": "Datos no listos"}
 
 def _read_ads1115(i2c, addr):
@@ -69,12 +80,9 @@ def main():
     print("  • GND  → GND")
     print("\nComprobación de líneas I²C:")
 
-    # Para comprobar el estado idle, definimos los pines como entradas con pull-up.
-    # El estado normal en reposo (idle) del bus I2C es ALTO (1).
     scl_pin = Pin(I2C_SCL_PIN, Pin.IN, Pin.PULL_UP)
     sda_pin = Pin(I2C_SDA_PIN, Pin.IN, Pin.PULL_UP)
     
-    # Pequeña pausa para que los pull-ups estabilicen el nivel de voltaje
     time.sleep(0.1)
 
     scl_status = "OK" if scl_pin.value() == 1 else "FALLO (línea en bajo)"
@@ -84,13 +92,11 @@ def main():
     print(f"  SDA idle alto: {sda_status}")
     print("-" * 30)
 
-    # Si las líneas no están en alto, es probable que el bus no funcione.
     if scl_pin.value() == 0 or sda_pin.value() == 0:
         print("¡Atención! Una o ambas líneas I2C están en bajo.")
         print("Verifica el cableado, las resistencias pull-up y la alimentación.")
         return
 
-    # Inicializar el bus I2C para el escaneo
     i2c = SoftI2C(scl=Pin(I2C_SCL_PIN), sda=Pin(I2C_SDA_PIN))
     
     print("\nBuscando dispositivos I2C...")
@@ -117,3 +123,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
