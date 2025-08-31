@@ -51,13 +51,14 @@ class OTAManager:
     
 
     async def _download_file_to_modem(self, url: str, filename: str) -> bool:
-        """Descarga un archivo al UFS del módem usando la lógica probada."""
+        """Descarga un archivo al UFS del módem usando la lógica probada y robusta."""
         ufs_path = f"UFS:{filename}"
         log_message(f"HTTP: Usando método de descarga directa para {filename}")
         
         try:
             self.picoLTE.file.delete_file_from_modem(filename)
             self.picoLTE.atcom.send_at_comm("AT+QHTTPSTOP")
+            
             self.picoLTE.http.set_context_id(1)
             self.picoLTE.http.set_ssl_context_id(1)
 
@@ -68,20 +69,26 @@ class OTAManager:
             if get_urc["status"] != Status.SUCCESS:
                 log_message(f"HTTP: Falló la petición GET inicial. {get_urc.get('response')}")
                 return False
-            log_message(f"HTTP: URC de GET recibido. {get_urc.get('response')}")
+            
+            response_str = get_urc.get("response", [""])[0]
+            parts = response_str.split(',')
+            if len(parts) > 1:
+                http_status_code = int(parts[1])
+                log_message(f"HTTP: El servidor respondió con el código {http_status_code}.")
+                if not (200 <= http_status_code < 400):
+                    log_message(f"HTTP: Código de estado de error ({http_status_code}). Abortando descarga.")
+                    return False
+            else:
+                log_message("HTTP: No se pudo parsear el código de estado de la respuesta URC.")
+                return False
 
             res = self.picoLTE.http.read_response_to_file(ufs_path, timeout=180)
-            if res["status"] != Status.SUCCESS:
-                 log_message(f"HTTP: Falló el guardado del archivo. {res.get('response')}")
-                 return False
-
-            return True
+            return res["status"] == Status.SUCCESS
 
         except Exception as e:
             log_message(f"HTTP: Excepción durante la descarga. {e}")
             return False
 
-    
     async def _transfer_zip_to_client(self, filename: str) -> bool:
         ap = None
         server_socket = None

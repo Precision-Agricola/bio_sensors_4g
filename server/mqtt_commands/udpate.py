@@ -18,9 +18,9 @@ class UpdateCommand(MQTTCommand):
         if not all([target, firmware_url]):
             log_message("Comando 'update' inválido: faltan 'target' o 'url'.")
             return
-        
+
         log_message(f"Recibida orden de actualización para '{target}'.")
-        
+
         asyncio.create_task(
             self.ota_manager.start_update_flow(
                 target=target,
