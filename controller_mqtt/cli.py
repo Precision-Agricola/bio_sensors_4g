@@ -56,5 +56,26 @@ def server_reboot(
     
     actions.handle_server_reboot(device=device)
 
+@client_app.command("update", help="Envía una orden de actualización de firmware a un cliente.")
+def client_update(
+    device: str = typer.Option(..., "--device", "-d"),
+    version: str = typer.Option(..., "--version", "-v", help="La etiqueta de la release de GitHub. Ej: 'v1.3.0'"),
+    repo: str = typer.Option("Precision-Agricola/bio_sensors_4g", "--repo")
+):
+    """Prepara y envía el comando de actualización del cliente."""
+    firmware_url = f"https://github.com/{repo}/releases/download/{version}/client.zip"
+    print(f"🔗 URL del firmware: {firmware_url}")
+    actions.handle_update(device, "client", firmware_url)
+
+@server_app.command("update", help="Envía una orden de actualización de firmware al servidor.")
+def server_update(
+    device: str = typer.Option(..., "--device", "-d"),
+    version: str = typer.Option(..., "--version", "-v"),
+    repo: str = typer.Option("Precision-Agricola/bio_sensors_4g", "--repo")
+):
+    """Prepara y envía el comando de actualización del servidor."""
+    firmware_url = f"https://github.com/{repo}/releases/download/{version}/server.zip"
+    print(f"🔗 URL del firmware: {firmware_url}")
+    actions.handle_update(device, "server", firmware_url)
 if __name__ == "__main__":
     app()

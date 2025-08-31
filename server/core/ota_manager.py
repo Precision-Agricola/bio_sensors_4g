@@ -1,54 +1,190 @@
-# server/core/ota_manager.py
-
+import time
 import uasyncio as asyncio
+import network
+import socket
+import gc
+from pico_lte.core import PicoLTE
+from pico_lte.utils.status import Status
 from utils.logger import log_message
 
 class OTAManager:
-    def __init__(self):
+    def __init__(self, picoLTE: PicoLTE):
+        self.picoLTE = picoLTE
         self.update_in_progress = False
+        self.LOCAL_AP_SSID = "PicoUpdateAP"
+        self.LOCAL_AP_PASS = "password123"
         log_message("OTA Manager inicializado.")
 
-    async def start_update_flow(self, version: str, url: str, ssid: str, password: str):
-        """
-        Simula el flujo completo usando los parámetros recibidos del comando MQTT.
-        """
+    async def start_update_flow(self, target: str, firmware_url: str):
         if self.update_in_progress:
-            log_message("OTA: Ya hay una actualización en progreso.")
+            log_message("OTA: Actualización ya en progreso.")
             return
 
         self.update_in_progress = True
-        log_message(f"OTA: [INICIO] Flujo para versión '{version}'")
-        log_message(f"OTA: URL de descarga: {url}")
-
+        firmware_filename = f"{target}.zip"
+        log_message(f"OTA: [INICIO] Flujo para actualizar '{target}'")
+        
         try:
-            # 1. Simular descarga
-            log_message("OTA: [1/5] Simulando descarga de firmware...")
-            await asyncio.sleep(5)
-            log_message("OTA: [1/5] Descarga simulada completada.")
+            log_message(f"OTA [1/3]: Descargando {firmware_filename}...")
+            if not await self._download_file_to_modem(firmware_url, firmware_filename):
+                raise Exception("Fallo en la descarga del firmware")
+            log_message("OTA [1/3]: Descarga completada.")
 
-            # 2. Simular notificación al cliente
-            log_message("OTA: [2/5] Simulando notificación al cliente por UART.")
-            log_message("--> Comando a enviar por UART: ota_start")
-            await asyncio.sleep(1)
+            if target == 'client':
+                log_message("OTA [2/3]: Preparando para transferencia local a cliente...")
+                if not await self._transfer_zip_to_client(firmware_filename):
+                    raise Exception("Fallo en la transferencia local al cliente")
+                log_message("OTA [2/3]: Transferencia local finalizada.")
+            elif target == 'server':
+                log_message("OTA [2/3]: Lógica de actualización del servidor (por implementar).")
+                await asyncio.sleep(5)
 
-            # 3. Simular inicio de servidor local (usando los datos reales)
-            log_message(f"OTA: [3/5] Simulando inicio de AP Wi-Fi con SSID: '{ssid}'")
-            await asyncio.sleep(2)
-            log_message("OTA: [3/5] Servidor local simulado activo.")
-
-            # 4. Simular espera de confirmación
-            log_message("OTA: [4/5] Simulando espera de confirmación del cliente...")
-            await asyncio.sleep(10)
-            log_message("OTA: [4/5] Confirmación simulada recibida del cliente.")
-
-            # 5. Simular limpieza
-            log_message("OTA: [5/5] Simulando limpieza...")
-            await asyncio.sleep(2)
-            log_message("OTA: [5/5] Limpieza simulada completada.")
-
-            log_message(f"OTA: [ÉXITO] Proceso simulado para versión '{version}' completado.")
+            log_message("OTA [3/3]: Limpiando archivos...")
+            self.picoLTE.file.delete_file_from_modem(firmware_filename)
+            log_message("OTA [3/3]: Limpieza completada.")
+            log_message(f"OTA: [ÉXITO] Proceso para '{target}' finalizado.")
 
         except Exception as e:
-            log_message(f"OTA: [ERROR] Ocurrió un error en la simulación: {e}")
+            log_message(f"OTA: [ERROR] {e}")
         finally:
             self.update_in_progress = False
+    
+
+    async def _download_file_to_modem(self, url: str, filename: str) -> bool:
+        """Descarga un archivo al UFS del módem usando la lógica probada."""
+        ufs_path = f"UFS:{filename}"
+        log_message(f"HTTP: Usando método de descarga directa para {filename}")
+        
+        try:
+            self.picoLTE.file.delete_file_from_modem(filename)
+            self.picoLTE.atcom.send_at_comm("AT+QHTTPSTOP")
+            self.picoLTE.http.set_context_id(1)
+            self.picoLTE.http.set_ssl_context_id(1)
+
+            self.picoLTE.http.set_server_url(url)
+            self.picoLTE.http.get(timeout=60)
+            
+            get_urc = self.picoLTE.atcom.get_urc_response("+QHTTPGET: 0,", timeout=120)
+            if get_urc["status"] != Status.SUCCESS:
+                log_message(f"HTTP: Falló la petición GET inicial. {get_urc.get('response')}")
+                return False
+            log_message(f"HTTP: URC de GET recibido. {get_urc.get('response')}")
+
+            res = self.picoLTE.http.read_response_to_file(ufs_path, timeout=180)
+            if res["status"] != Status.SUCCESS:
+                 log_message(f"HTTP: Falló el guardado del archivo. {res.get('response')}")
+                 return False
+
+            return True
+
+        except Exception as e:
+            log_message(f"HTTP: Excepción durante la descarga. {e}")
+            return False
+
+    
+    async def _transfer_zip_to_client(self, filename: str) -> bool:
+        ap = None
+        server_socket = None
+        success = False
+        try:
+            ap = self._setup_access_point()
+            log_message("OTA: Access Point creado. Esperando conexión del cliente (ESP32)...")
+            
+            addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+            server_socket = socket.socket()
+            server_socket.bind(addr)
+            server_socket.listen(1)
+            
+            client_socket, addr = server_socket.accept()
+            client_socket.settimeout(60)
+            log_message(f"OTA: Cliente conectado desde {addr}")
+
+            file_size = self._check_modem_file(filename)
+            if not file_size:
+                raise Exception(f"El archivo {filename} no se encontró en el módem.")
+            
+            success = self._stream_file_to_client(client_socket, file_size, filename)
+            
+        except Exception as e:
+            log_message(f"OTA: Error durante la transferencia local: {e}")
+            success = False
+        finally:
+            if server_socket: server_socket.close()
+            if ap and ap.active():
+                ap.active(False)
+                log_message("OTA: Access Point desactivado.")
+            gc.collect()
+        return success
+
+    def _setup_access_point(self):
+        ap = network.WLAN(network.AP_IF)
+        ap.config(essid=self.LOCAL_AP_SSID, password=self.LOCAL_AP_PASS)
+        ap.active(True)
+        while not ap.active(): time.sleep(1)
+        return ap
+
+    def _check_modem_file(self, filename: str) -> int | None:
+        result = self.picoLTE.file.get_file_list(filename)
+        if result.get('status') == Status.SUCCESS and result.get('response'):
+            for line in result['response']:
+                if line.startswith('+QFLST:'):
+                    try:
+                        parts = line.split(',')
+                        filename_part = parts[0].split(':')[1].strip().strip('"')
+                        filesize = parts[1].strip()
+                        if filename_part == filename:
+                            return int(filesize)
+                    except (IndexError, ValueError):
+                        continue
+        return None
+
+    def _stream_file_to_client(self, client_socket, file_size: int, filename: str) -> bool:
+        """CAMBIO CRÍTICO: Lógica de streaming y limpieza idéntica a tu script de prueba."""
+        uart = self.picoLTE.atcom.modem_com
+        
+        client_socket.send(b'HTTP/1.1 200 OK\r\n')
+        client_socket.send(b'Content-Type: application/zip\r\n')
+        client_socket.send(f'Content-Length: {file_size}\r\n'.encode())
+        client_socket.send(b'Content-Disposition: attachment; filename="client.zip"\r\n')
+        client_socket.send(b'Connection: close\r\n\r\n')
+        
+        command = f'AT+QFDWL="{filename}"\r\n'
+        if uart.any(): uart.read()
+        uart.write(command.encode('utf-8'))
+
+        buffer = b''
+        connect_found = False
+        start_time = time.ticks_ms()
+        while time.ticks_diff(time.ticks_ms(), start_time) < 5000:
+            if uart.any():
+                buffer += uart.read(1)
+                if b'\n' in buffer:
+                    line = buffer.strip().decode('utf-8', 'ignore')
+                    if "CONNECT" in line:
+                        connect_found = True
+                        break
+                    buffer = b''
+        
+        if not connect_found:
+            log_message("OTA: Timeout, no se recibió 'CONNECT' del módem.")
+            return False
+
+        bytes_sent = 0
+        chunk_size = 2048
+        gc.collect()
+        while bytes_sent < file_size:
+            bytes_to_read = min(chunk_size, file_size - bytes_sent)
+            chunk_data = uart.read(bytes_to_read)
+            if not chunk_data: break
+            client_socket.write(chunk_data)
+            bytes_sent += len(chunk_data)
+        
+        cleanup_start_time = time.ticks_ms()
+        while time.ticks_diff(time.ticks_ms(), cleanup_start_time) < 3000:
+            if uart.any():
+                response_bytes = uart.read()
+                if response_bytes and b"OK" in response_bytes:
+                    break
+        
+        client_socket.close()
+        return bytes_sent == file_size

@@ -66,3 +66,28 @@ def handle_server_reboot(device: str):
         if commander and commander.mqtt_connection:
             print("🔌 Desconectando de AWS IoT Core...")
             asyncio.run(commander.disconnect())
+
+
+def handle_update(device: str, target: str, url: str):
+    """Construye y envía el comando de actualización simplificado."""
+    commander = None
+    try:
+        command_dict = commands.create_update_command(target, url)
+
+        command_json_str = json.dumps(command_dict, separators=(',', ':'))
+        base64_bytes = base64.b64encode(command_json_str.encode('utf-8'))
+        base64_str = base64_bytes.decode('utf-8')
+        wrapper_payload = {"data": base64_str}
+
+        print(f"🛰️  Enviando comando de actualización para '{target}'...")
+        config = AWSIoTConfig()
+        commander = IoTCommander(config)
+        asyncio.run(commander.connect())
+        asyncio.run(commander.send_command(wrapper_payload, target_devices=device))
+        print(f"[bold green]✅ Comando enviado exitosamente.[/bold green]")
+    except Exception as e:
+        print(f"[bold red]❌ ERROR durante la acción de actualización:[/bold red] {e}")
+    finally:
+        if commander:
+            print("🔌 Desconectando de AWS IoT Core...")
+            asyncio.run(commander.disconnect())

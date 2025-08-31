@@ -6,11 +6,10 @@ import ubinascii
 from pico_lte.core import PicoLTE
 from utils.logger import log_message
 from pico_lte.utils.status import Status
-
 from core.ota_manager import OTAManager
 from mqtt_commands.params import ParamsCommand
 from mqtt_commands.reset import ResetCommand
-from mqtt_commands.fetch_update import FetchUpdateCommand
+from mqtt_commands.udpate import UpdateCommand 
 from config.device_info import DEVICE_ID
 
 SUB_TOPICS = [
@@ -19,12 +18,12 @@ SUB_TOPICS = [
 ]
 
 picoLTE = PicoLTE()
-ota_manager = OTAManager()
+ota_manager = OTAManager(picoLTE)
 
 COMMAND_HANDLERS = {
     "reset": ResetCommand(),
     "params": ParamsCommand(),
-    "fetch_update": FetchUpdateCommand(picoLTE=picoLTE, ota_manager=ota_manager),
+    "update": UpdateCommand(ota_manager=ota_manager),
 }
 
 async def listen_for_commands():
