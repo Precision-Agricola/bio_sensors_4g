@@ -1,3 +1,5 @@
+# server/core/ota_manager.py
+
 import time
 import uasyncio as asyncio
 import network
@@ -6,6 +8,7 @@ import gc
 from pico_lte.core import PicoLTE
 from pico_lte.utils.status import Status
 from utils.logger import log_message
+from core.uart_commands import send_uart_command
 
 class OTAManager:
     def __init__(self, picoLTE: PicoLTE):
@@ -106,6 +109,15 @@ class OTAManager:
             client_socket.settimeout(60)
             log_message(f"OTA: Cliente conectado desde {addr}")
 
+            command_to_send = {
+                "command_type": "ota_start",
+                "payload": {
+                    "ssid": self.LOCAL_AP_SSID,
+                    "password": self.LOCAL_AP_PASS
+                }
+            }
+
+            send_uart_command(command_to_send)
             file_size = self._check_modem_file(filename)
             if not file_size:
                 raise Exception(f"El archivo {filename} no se encontró en el módem.")

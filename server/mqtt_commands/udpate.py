@@ -1,4 +1,4 @@
-# server/mqtt_commands/fetch_update.py
+# server/mqtt_commands/update.py
 
 import uasyncio as asyncio
 from utils.logger import log_message
