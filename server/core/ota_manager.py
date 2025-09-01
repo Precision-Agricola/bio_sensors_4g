@@ -8,7 +8,7 @@ import gc
 from pico_lte.core import PicoLTE
 from pico_lte.utils.status import Status
 from utils.logger import log_message
-from core.uart_commands import send_uart_command
+from core.uart_manager import send_uart_command_async
 
 class OTAManager:
     def __init__(self, picoLTE: PicoLTE):
@@ -93,22 +93,13 @@ class OTAManager:
             return False
 
     async def _transfer_zip_to_client(self, filename: str) -> bool:
+        """Orquesta la creación del AP y la transferencia del archivo al cliente."""
         ap = None
         server_socket = None
+        client_socket = None
         success = False
         try:
-            ap = self._setup_access_point()
-            log_message("OTA: Access Point creado. Esperando conexión del cliente (ESP32)...")
-            
-            addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
-            server_socket = socket.socket()
-            server_socket.bind(addr)
-            server_socket.listen(1)
-            
-            client_socket, addr = server_socket.accept()
-            client_socket.settimeout(60)
-            log_message(f"OTA: Cliente conectado desde {addr}")
-
+            log_message("OTA: Enviando trigger 'ota_start' al cliente (ESP32)...")
             command_to_send = {
                 "command_type": "ota_start",
                 "payload": {
@@ -116,8 +107,21 @@ class OTAManager:
                     "password": self.LOCAL_AP_PASS
                 }
             }
+            await send_uart_command_async(command_to_send)
+            
+            ap = self._setup_access_point()
+            log_message("OTA: Access Point creado. Esperando conexión del cliente...")
+            
+            addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+            server_socket = socket.socket()
+            server_socket.bind(addr)
+            server_socket.listen(1)
+            
+            log_message("OTA: Esperando accept() del socket...")
+            client_socket, addr = server_socket.accept()
+            client_socket.settimeout(60)
+            log_message(f"OTA: Cliente conectado desde {addr}")
 
-            send_uart_command(command_to_send)
             file_size = self._check_modem_file(filename)
             if not file_size:
                 raise Exception(f"El archivo {filename} no se encontró en el módem.")
@@ -128,7 +132,10 @@ class OTAManager:
             log_message(f"OTA: Error durante la transferencia local: {e}")
             success = False
         finally:
-            if server_socket: server_socket.close()
+            if client_socket:
+                client_socket.close()
+            if server_socket:
+                server_socket.close()
             if ap and ap.active():
                 ap.active(False)
                 log_message("OTA: Access Point desactivado.")
