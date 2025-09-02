@@ -9,29 +9,47 @@ PICO_IP = "192.168.4.1"
 FIRMWARE_URL = f"http://{PICO_IP}/client.zip"
 SAVE_PATH = "client_update.zip"
 
-async def download_and_apply_update(ssid: str, password: str):
-    """Se conecta al AP de la Pico, descarga y aplica la actualización."""
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
+async def download_and_apply_update(wlan, ssid: str, password: str):
+    """
+    Se conecta al AP de la Pico usando el objeto WLAN compartido,
+    descarga y aplica la actualización.
+    """
     
-    log_message(f"OTA Updater: Conectando a '{ssid}'...")
+    
+    if not wlan.active():
+        wlan.active(True)
+    
+    log_message(f"OTA Updater: Iniciando conexión a '{ssid}'...")
     
     try:
-        wlan.connect(ssid, password)
-        
-        # Esperar la conexión
-        max_wait = 20
-        while max_wait > 0 and wlan.status() != 3:
-            max_wait -= 1
-            log_message("OTA Updater: Esperando conexión...")
-            await asyncio.sleep(1)
+        max_retries = 5
+        connected = False
+        for attempt in range(max_retries):
+            log_message(f"OTA Updater: Intento de conexión {attempt + 1}/{max_retries}...")
+            try:
+                wlan.connect(ssid, password)
+                
+                wait_time = 10
+                while wait_time > 0:
+                    if wlan.isconnected():
+                        connected = True
+                        break
+                    wait_time -= 1
+                    await asyncio.sleep(1)
+                
+                if connected:
+                    break
 
-        if not wlan.isconnected():
-            raise Exception("Fallo al conectar al AP de la Pico.")
-            
-        log_message("OTA Updater: ✅ Conectado. Descargando firmware...")
+            except Exception as e:
+                log_message(f"OTA Updater: Error en intento {attempt + 1}: {e}")
+                await asyncio.sleep(2)
         
-        # Descargar el archivo
+        if not wlan.isconnected():
+            raise Exception("Fallo al conectar al AP de la Pico después de varios reintentos.")
+            
+        log_message(f"OTA Updater: ✅ Conectado. IP: {wlan.ifconfig()[0]}")
+        log_message(f"OTA Updater: Descargando firmware desde {FIRMWARE_URL}...")
+        
         response = urequests.get(FIRMWARE_URL, stream=True)
         if response.status_code == 200:
             with open(SAVE_PATH, "wb") as f:
@@ -42,17 +60,14 @@ async def download_and_apply_update(ssid: str, password: str):
             log_message(f"OTA Updater: ✅ Firmware guardado en '{SAVE_PATH}'.")
             
             log_message("OTA Updater: Lógica de descompresión y reinicio pendiente.")
-            # 1. Descomprimir el ZIP.
-            # 2. Reemplazar archivos .py.
-            # 3. Reiniciar el dispositivo.
             
         else:
-            raise Exception(f"Error HTTP al descargar: {response.status_code}")
+            raise Exception(f"Error HTTP {response.status_code} al descargar.")
 
     except Exception as e:
         log_message(f"OTA Updater: ❌ ERROR: {e}")
     finally:
         if wlan.isconnected():
             wlan.disconnect()
-        wlan.active(False)
+        wlan.active(False) 
         log_message("OTA Updater: Red de actualización desconectada.")

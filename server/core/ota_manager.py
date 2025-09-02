@@ -5,6 +5,9 @@ import uasyncio as asyncio
 import network
 import socket
 import gc
+import os
+import ubinascii
+import machine
 from pico_lte.core import PicoLTE
 from pico_lte.utils.status import Status
 from utils.logger import log_message
@@ -14,8 +17,6 @@ class OTAManager:
     def __init__(self, picoLTE: PicoLTE):
         self.picoLTE = picoLTE
         self.update_in_progress = False
-        self.LOCAL_AP_SSID = "PicoUpdateAP"
-        self.LOCAL_AP_PASS = "password123"
         log_message("OTA Manager inicializado.")
 
     async def start_update_flow(self, target: str, firmware_url: str):
@@ -91,25 +92,27 @@ class OTAManager:
         except Exception as e:
             log_message(f"HTTP: Excepción durante la descarga. {e}")
             return False
-
     async def _transfer_zip_to_client(self, filename: str) -> bool:
-        """Orquesta la creación del AP y la transferencia del archivo al cliente."""
+        """Orquesta la transferencia usando el método refactorizado para crear el AP."""
         ap = None
         server_socket = None
         client_socket = None
         success = False
         try:
-            log_message("OTA: Enviando trigger 'ota_start' al cliente (ESP32)...")
+            pico_id = ubinascii.hexlify(machine.unique_id()).decode('utf-8')
+            dynamic_ssid = f"OTA_PICO_{pico_id[-6:]}"
+            dynamic_pass = ubinascii.hexlify(os.urandom(8)).decode('utf-8')
+            
+            log_message(f"OTA: Credenciales dinámicas -> SSID: {dynamic_ssid}")
+
+            log_message("OTA: Enviando trigger 'ota_start' con credenciales dinámicas...")
             command_to_send = {
                 "command_type": "ota_start",
-                "payload": {
-                    "ssid": self.LOCAL_AP_SSID,
-                    "password": self.LOCAL_AP_PASS
-                }
+                "payload": {"ssid": dynamic_ssid, "password": dynamic_pass}
             }
             await send_uart_command_async(command_to_send)
             
-            ap = self._setup_access_point()
+            ap = await self._setup_access_point_async(dynamic_ssid, dynamic_pass)
             log_message("OTA: Access Point creado. Esperando conexión del cliente...")
             
             addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
@@ -117,7 +120,6 @@ class OTAManager:
             server_socket.bind(addr)
             server_socket.listen(1)
             
-            log_message("OTA: Esperando accept() del socket...")
             client_socket, addr = server_socket.accept()
             client_socket.settimeout(60)
             log_message(f"OTA: Cliente conectado desde {addr}")
@@ -132,21 +134,22 @@ class OTAManager:
             log_message(f"OTA: Error durante la transferencia local: {e}")
             success = False
         finally:
-            if client_socket:
-                client_socket.close()
-            if server_socket:
-                server_socket.close()
+            if client_socket: client_socket.close()
+            if server_socket: server_socket.close()
             if ap and ap.active():
                 ap.active(False)
                 log_message("OTA: Access Point desactivado.")
             gc.collect()
         return success
 
-    def _setup_access_point(self):
+    # --- INICIO DE LA MODIFICACIÓN ---
+    async def _setup_access_point_async(self, ssid: str, password: str):
+        """Setup dinamically the access poin on different updates"""
         ap = network.WLAN(network.AP_IF)
-        ap.config(essid=self.LOCAL_AP_SSID, password=self.LOCAL_AP_PASS)
+        ap.config(essid=ssid, password=password)
         ap.active(True)
-        while not ap.active(): time.sleep(1)
+        while not ap.active():
+            await asyncio.sleep_ms(100)
         return ap
 
     def _check_modem_file(self, filename: str) -> int | None:
@@ -165,15 +168,18 @@ class OTAManager:
         return None
 
     def _stream_file_to_client(self, client_socket, file_size: int, filename: str) -> bool:
-        """CAMBIO CRÍTICO: Lógica de streaming y limpieza idéntica a tu script de prueba."""
+        """
+        Transmite el archivo usando un bucle síncrono y bloqueante, adaptado
+        del script de prueba funcional para máxima velocidad y fiabilidad.
+        """
         uart = self.picoLTE.atcom.modem_com
-        
+
         client_socket.send(b'HTTP/1.1 200 OK\r\n')
         client_socket.send(b'Content-Type: application/zip\r\n')
         client_socket.send(f'Content-Length: {file_size}\r\n'.encode())
         client_socket.send(b'Content-Disposition: attachment; filename="client.zip"\r\n')
         client_socket.send(b'Connection: close\r\n\r\n')
-        
+
         command = f'AT+QFDWL="{filename}"\r\n'
         if uart.any(): uart.read()
         uart.write(command.encode('utf-8'))
@@ -195,16 +201,24 @@ class OTAManager:
             log_message("OTA: Timeout, no se recibió 'CONNECT' del módem.")
             return False
 
+        log_message(f"OTA: Iniciando streaming de {file_size} bytes...")
         bytes_sent = 0
         chunk_size = 2048
         gc.collect()
+
         while bytes_sent < file_size:
             bytes_to_read = min(chunk_size, file_size - bytes_sent)
             chunk_data = uart.read(bytes_to_read)
-            if not chunk_data: break
+            
+            if not chunk_data:
+                log_message(f"OTA ERROR: La lectura de UART falló en {bytes_sent} bytes.")
+                return False
+            
             client_socket.write(chunk_data)
             bytes_sent += len(chunk_data)
-        
+
+        log_message(f"OTA: Streaming finalizado. Total enviado: {bytes_sent} bytes.")
+
         cleanup_start_time = time.ticks_ms()
         while time.ticks_diff(time.ticks_ms(), cleanup_start_time) < 3000:
             if uart.any():

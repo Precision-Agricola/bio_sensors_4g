@@ -7,6 +7,7 @@ from utils.logger import log_message
 from utils.init import system_setup
 from system.uart_listener import uart_listener
 from system.status.indicator import set_status
+import network
 
 wdt = WDT(timeout=1000 * 60 * 5)
 
@@ -42,6 +43,13 @@ def start_sensor_cycle():
 
     set_status("ok")
     log_message("Estado OK: sistema operativo")
+
+    print("-----------------------------------")
+    wlan_sta = network.WLAN(network.STA_IF)
+    wlan_sta.active(False)
+
+    config.wlan = wlan_sta
+    print("Interfaz WLAN inicializada y almacenada en runtime.")
 
     asyncio.run(run_async_mode(sensor_routine))
 
