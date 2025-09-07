@@ -1,4 +1,4 @@
-name: Create Release and Package ZIPs
+name: Create Release and Package TARs
 
 on:
   push:
@@ -16,17 +16,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create client.zip
-        run: zip -r client.zip ./client
+      - name: Create client.tar.gz
+        run: tar -czvf client.tar.gz ./client
 
-      - name: Create server.zip
-        run: zip -r server.zip ./server
+      - name: Create server.tar.gz
+        run: tar -czvf server.tar.gz ./server
 
       - name: Create details.json
         run: |
           echo '{
             "version": "${{ github.ref_name }}",
-            "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/client.zip",
+            "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/client.tar.gz",
             "transfer_params": {
               "method": "wifi_ap",
               "ssid": "PicoUpdateAP",
@@ -39,7 +39,6 @@ jobs:
         with:
           prerelease: ${{ startsWith(github.ref, 'refs/tags/test-v') }}
           files: |
-            client.zip
-            server.zip
+            client.tar.gz
+            server.tar.gz
             details.json
-    
