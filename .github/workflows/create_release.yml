@@ -16,17 +16,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create client.tar.gz
-        run: tar -czvf client.tar.gz ./client
+      - name: Create client.tar
+        run: tar -cvf client.tar ./client
 
-      - name: Create server.tar.gz
-        run: tar -czvf server.tar.gz ./server
+      - name: Create server.tar
+        run: tar -cvf server.tar ./server
 
       - name: Create details.json
         run: |
           echo '{
             "version": "${{ github.ref_name }}",
-            "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/client.tar.gz",
+            "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/client.tar",
             "transfer_params": {
               "method": "wifi_ap",
               "ssid": "PicoUpdateAP",
@@ -39,6 +39,6 @@ jobs:
         with:
           prerelease: ${{ startsWith(github.ref, 'refs/tags/test-v') }}
           files: |
-            client.tar.gz
-            server.tar.gz
+            client.tar
+            server.tar
             details.json
