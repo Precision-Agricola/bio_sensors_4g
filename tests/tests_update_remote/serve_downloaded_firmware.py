@@ -1,4 +1,5 @@
 # tests/tests_update_remote/serve_downloaded_firmware.py
+"""Use the wifi connection to send tar file to a connected client"""
 
 import time
 import network
