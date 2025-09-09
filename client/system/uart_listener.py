@@ -4,7 +4,7 @@ import machine
 import config.runtime as config
 from utils.uart import uart
 from utils.logger import log_message
-from system.ota_update import download_and_apply_update
+from system.ota_update import prepare_and_reboot 
 
 async def uart_listener():
     """Uart Listener"""
@@ -27,14 +27,13 @@ async def uart_listener():
                         payload = msg.get("payload", {})
 
                         if command_type == "ota_start":
-                            ssid = payload.get("ssid")
-                            password = payload.get("password")
+                            ssid = payload.get('ssid')
+                            password = payload.get('password')
                             if ssid and password:
-                                log_message("Recibida orden de actualización OTA.")
-                                asyncio.create_task(download_and_apply_update(wlan, ssid, password))
+                                log_message("Recibiendo order de acutalización ota llamando al preparador")
+                                prepare_and_reboot(ssid=ssid, password=password)
                             else:
-                                log_message("Comando 'ota_start' incompleto.")
-                        
+                                log_message("Comando ota incompleto, ssid o password no definidos")
                         elif command_type == "reset":
                             log_message("⚠️ RESET recibido. Reiniciando...")
                             machine.reset()
