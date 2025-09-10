@@ -52,7 +52,7 @@ def start_application_logic():
 def main():
     mode = config.get_mode()
     system_setup()
-    log_message(f"BIO-IOT v1.3.1 - Mode: {mode}")
+    log_message(f"BIO-IOT v1.4.0-test - Mode: {mode}")
     wdt.feed()
 
     if mode == "PROGRAM_MODE":
