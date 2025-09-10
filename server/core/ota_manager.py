@@ -92,33 +92,20 @@ class OTAManager:
             log_message(f"HTTP: Excepción durante la descarga. {e}")
             return False
 
+ 
     async def _transfer_zip_to_client(self, filename: str) -> bool:
         ap = None
         server_socket = None
         client_socket = None
         success = False
-        uart = self.picoLTE.atcom.modem_com
-        DEFAULT_RXBUF_SIZE = 2048 # Tamaño original del búfer de la librería
-
+        
         try:
-            # 1. FORZAR RECOLECCIÓN DE BASURA
-            # Limpiamos la memoria fragmentada por la descarga HTTP ANTES de
-            # intentar asignar un bloque de memoria grande.
             gc.collect()
 
-            # 2. AUMENTAR EL BÚFER A UN TAMAÑO SEGURO
-            # 4KB es un compromiso: suficiente para evitar el desbordamiento,
-            # y con alta probabilidad de ser asignado sin error de memoria.
-            LARGER_RXBUF_SIZE = 4096
-            uart.init(rxbuf=LARGER_RXBUF_SIZE)
-            log_message(f"OTA: Búfer UART aumentado temporalmente a {LARGER_RXBUF_SIZE} bytes.")
             
-            # --- Lógica de transferencia ---
             pico_id = ubinascii.hexlify(machine.unique_id()).decode('utf-8')
             dynamic_ssid = f"OTA_PICO_{pico_id[-6:]}"
-            # Usamos una contraseña fija para las pruebas, como solicitaste.
             dynamic_pass = "password123"
-            # dynamic_pass = ubinascii.hexlify(os.urandom(8)).decode('utf-8') # <- Opción para producción
             
             log_message(f"OTA: Credenciales dinámicas -> SSID: {dynamic_ssid}")
 
@@ -136,7 +123,10 @@ class OTAManager:
             server_socket.bind(addr)
             server_socket.listen(1)
             
+            server_socket.settimeout(60.0)
             client_socket, addr = server_socket.accept()
+            server_socket.settimeout(None)
+            
             log_message(f"OTA: Cliente conectado desde {addr}")
 
             file_size = self._check_modem_file(filename)
@@ -145,25 +135,22 @@ class OTAManager:
 
             success = self._stream_file_to_client(client_socket, file_size, filename)
             
+        except socket.timeout:
+            log_message("OTA: Error - Timeout esperando la conexión del cliente.")
+            success = False
         except Exception as e:
             log_message(f"OTA: Error durante la transferencia local: {e}")
             success = False
         finally:
-            # 3. RESTAURACIÓN SEGURA DEL BÚFER
-            # Es crucial restaurar el búfer a su tamaño original para liberar memoria,
-            # sin importar si la transferencia tuvo éxito o falló.
-            uart.init(rxbuf=DEFAULT_RXBUF_SIZE)
-            log_message(f"OTA: Búfer UART restaurado a {DEFAULT_RXBUF_SIZE} bytes.")
-
-            # --- Limpieza de recursos ---
             if client_socket: client_socket.close()
             if server_socket: server_socket.close()
             if ap and ap.active():
                 ap.active(False)
                 log_message("OTA: Access Point desactivado.")
-            gc.collect() # Limpieza final
+            gc.collect()
             
-        return success
+        return success 
+    
 
 
     async def _setup_access_point_async(self, ssid: str, password: str):

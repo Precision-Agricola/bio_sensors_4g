@@ -8,35 +8,17 @@ import gc
 import machine
 import config.runtime as config
 
-print("""
-      **
-    *****
-   *********
-  ************
- ************** (((((((((#
-*********** (((((((((((###
-********** (((((((((((######
-******** (((((((((#######
- ****** (((((((((########*
-  ***** (((((((##########
-   *** ((((((##########
-    * ((((##########
-       (########
-""")
-
 print("      Precision Agricola Bioreactores IoT V1.4 - estable")
 print("-" * 50)
 
 UPDATE_FLAG = 'update.flag'
 
 if UPDATE_FLAG in uos.listdir('/'):
-    print("¡Bandera de actualización encontrada! Lanzando actualizador...")
     try:
         from system import updater
         updater.run()
     except Exception as e:
         print(f"¡¡¡ ERROR FATAL AL LANZAR EL ACTUALIZADOR: {e} !!!")
-        print("Borrando bandera para intentar un arranque normal en el próximo reinicio.")
         uos.remove(UPDATE_FLAG)
         machine.reset()
 

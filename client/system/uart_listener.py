@@ -1,14 +1,13 @@
+# client/system/uart_listener.py
 import uasyncio as asyncio
 import ujson
 import machine
-import config.runtime as config
 from utils.uart import uart
 from utils.logger import log_message
-from system.ota_update import prepare_and_reboot 
+from system.ota_update import prepare_and_reboot
 
 async def uart_listener():
-    """Uart Listener"""
-    wlan = config.wlan
+    """Escucha comandos por UART y lanza el proceso de actualización."""
     log_message("UART listener activo (cliente).")
     buffer = b""
 
@@ -23,25 +22,19 @@ async def uart_listener():
                     try:
                         msg = ujson.loads(line.decode().strip())
                         log_message(f"UART comando recibido: {msg}")
-                        command_type = msg.get("command_type")
-                        payload = msg.get("payload", {})
-
-                        if command_type == "ota_start":
+                        
+                        if msg.get("command_type") == "ota_start":
+                            payload = msg.get("payload", {})
                             ssid = payload.get('ssid')
                             password = payload.get('password')
+                            
                             if ssid and password:
-                                log_message("Recibiendo order de acutalización ota llamando al preparador")
+                                log_message("Recibida orden de actualización, llamando al preparador...")
                                 prepare_and_reboot(ssid=ssid, password=password)
                             else:
-                                log_message("Comando ota incompleto, ssid o password no definidos")
-                        elif command_type == "reset":
-                            log_message("⚠️ RESET recibido. Reiniciando...")
-                            machine.reset()
-                        
-                        else:
-                            log_message(f"ℹ️ Comando UART no reconocido: {command_type}")
-                            
+                                log_message("Comando 'ota_start' incompleto.")
+                                
                     except Exception as e:
-                        log_message(f"❌ Error decodificando UART: {e}")
+                        log_message(f"Error procesando línea UART: {e}")
         except Exception as e:
-            log_message(f"❌ Error leyendo UART: {e}")
+            log_message(f"Error crítico en el listener UART: {e}")
