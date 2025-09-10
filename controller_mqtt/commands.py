@@ -29,3 +29,12 @@ def create_server_reboot_command() -> Dict[str, Any]:
     """Crea el payload para el comando de reinicio del servidor."""
     cmd = _base_command("reset")
     return cmd
+
+def create_update_command(target: str, url: str) -> Dict[str, Any]:
+    """Crea el payload para el comando de actualización simplificado."""
+    cmd = _base_command("update")
+    cmd["payload"] = {
+        "target": target,
+        "url": url
+    }
+    return cmd

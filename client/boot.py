@@ -1,28 +1,26 @@
+# client/boot.py
+
 from machine import Pin, WDT
 import uos
 import esp
 import time
 import gc
+import machine
 import config.runtime as config
-
-print("""
-      **
-     *****
-   *********
-  ************
- ************** (((((((((#
- *********** (((((((((((###
- ********** (((((((((((######
- ******** (((((((((#######
-  ****** (((((((((########*
-   ***** (((((((##########
-    *** ((((((##########
-     * ((((##########
-        (########
-""")
 
 print("      Precision Agricola Bioreactores IoT V1.4 - estable")
 print("-" * 50)
+
+UPDATE_FLAG = 'update.flag'
+
+if UPDATE_FLAG in uos.listdir('/'):
+    try:
+        from system import updater
+        updater.run()
+    except Exception as e:
+        print(f"¡¡¡ ERROR FATAL AL LANZAR EL ACTUALIZADOR: {e} !!!")
+        uos.remove(UPDATE_FLAG)
+        machine.reset()
 
 DIP_SW1 = Pin(config.BOOT_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
 DIP_SW2 = Pin(config.TEST_SELECTOR_PIN, Pin.IN, Pin.PULL_DOWN)
